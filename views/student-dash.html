@@ -256,18 +256,6 @@
             </div>
         </div>
 
-        <div class="glass-panel card">
-            <h3 class="card-title">My Mentors</h3>
-            <div ng-if="data.assigned_mentors && data.assigned_mentors.length > 0">
-                <div class="list-item" ng-repeat="mentor in data.assigned_mentors">
-                    <strong>{{ mentor.mentor_name }}</strong>
-                </div>
-            </div>
-            <div ng-if="!data.assigned_mentors || data.assigned_mentors.length === 0" class="empty-state">
-                No mentors assigned yet. Request an appointment to get started.
-            </div>
-        </div>
-
         <div class="glass-panel card appointment-card">
             <div class="booking-header">
                 <div>

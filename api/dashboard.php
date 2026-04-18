@@ -104,24 +104,22 @@ if ($role === 'Student') {
     $stmt = $pdo->prepare("SELECT m.mentor_id, u.name as mentor_name FROM Mentors m JOIN Users u ON m.user_id = u.user_id");
     $stmt->execute();
     $data['available_mentors'] = $stmt->fetchAll();
-
-    // Assigned Mentors
-    $stmt = $pdo->prepare("SELECT m.mentor_id, u.name as mentor_name FROM Mentors m JOIN Users u ON m.user_id = u.user_id JOIN Mentor_Student ms ON m.mentor_id = ms.mentor_id WHERE ms.student_id = ?");
-    $stmt->execute([$specific_id]);
-    $data['assigned_mentors'] = $stmt->fetchAll();
     
     jsonSuccess(['data' => $data]);
 
 } else if ($role === 'Mentor') {
     $data = array_merge($commonData, ['students' => [], 'appointments' => [], 'sessions' => [], 'escalations' => []]);
     
-    // Student roster: show assigned students
+    // Student roster: show only linked students (those with active appointments or sessions).
     $stmt = $pdo->prepare(
-        "SELECT s.student_id, u.name FROM Students s JOIN Users u ON s.user_id = u.user_id 
-         JOIN Mentor_Student ms ON s.student_id = ms.student_id 
-         WHERE ms.mentor_id = ? ORDER BY u.name"
+        "SELECT DISTINCT s.student_id, u.name FROM Students s JOIN Users u ON s.user_id = u.user_id 
+         WHERE s.student_id IN (
+             SELECT student_id FROM Appointments WHERE mentor_id = ? AND status NOT IN ('rejected', 'cancelled')
+             UNION
+             SELECT student_id FROM Sessions WHERE mentor_id = ? AND status != 'cancelled'
+         ) ORDER BY u.name"
     );
-    $stmt->execute([$specific_id]);
+    $stmt->execute([$specific_id, $specific_id]);
     $roster = $stmt->fetchAll();
     
     // Grab details for roster (Performance, Status, Consent)
