@@ -1,0 +1,322 @@
+<!-- views/mentor-dash.html -->
+<div ng-if="loading" style="display: flex; justify-content: center; align-items: center; min-height: 300px;">
+    <div style="text-align: center; color: var(--text-secondary);">
+        <div style="font-size: 2rem; margin-bottom: 1rem; animation: pulse 1.5s infinite">⟳</div>
+        <p>Loading mentor dashboard...</p>
+    </div>
+</div>
+
+<div ng-if="!loading">
+<div class="dashboard-header">
+    <div>
+        <h2 style="font-size: 2rem;">Mentor Control Center</h2>
+        <p class="subtitle" ng-if="userName">Welcome, {{ userName }}. Manage your students, sessions, and escalations.</p>
+        <p class="subtitle" ng-if="!userName">Manage your students, sessions, and issue escalations.</p>
+    </div>
+    <div class="button-group">
+        <button class="btn secondary" ng-click="loadDashboard()">↻ Refresh</button>
+        <a class="btn secondary" href="#!/profile">Profile</a>
+        <button class="btn secondary" ng-click="logout()">Logout</button>
+    </div>
+</div>
+<div class="dashboard-notice" style="margin-bottom: 1rem;">
+    <div class="alert success" ng-if="success">{{ success }}</div>
+    <div class="alert" ng-if="error">{{ error }}</div>
+</div>
+
+<!-- Notifications Panel -->
+<div class="dashboard-grid" style="margin-bottom: 1rem;" ng-if="data.notifications && data.notifications.length > 0">
+    <div class="glass-panel card" style="width: 100%;">
+        <h3 class="card-title">Notifications</h3>
+        <div class="notifications-columns">
+            <div class="glass-panel card" style="padding: 1rem;">
+                <h4 style="margin-bottom: 0.75rem;">Pending</h4>
+                <div ng-if="(data.notifications | filter:{status:'pending'}).length === 0" class="empty-state">None</div>
+                <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'pending'})">
+                    <div>{{ notif.message }}</div>
+                    <div class="notification-actions" style="margin-top: 0.5rem;">
+                        <button class="btn secondary" ng-click="markNotification(notif, 'read')">Mark Read</button>
+                        <button class="btn secondary" ng-click="markNotification(notif, 'archived')">Archive</button>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-panel card" style="padding: 1rem;">
+                <h4 style="margin-bottom: 0.75rem;">Read</h4>
+                <div ng-if="(data.notifications | filter:{status:'read'}).length === 0" class="empty-state">None</div>
+                <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'read'})">
+                    <div>{{ notif.message }}</div>
+                    <div class="notification-actions" style="margin-top: 0.5rem;">
+                        <button class="btn secondary" ng-click="markNotification(notif, 'archived')">Archive</button>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-panel card" style="padding: 1rem;">
+                <h4 style="margin-bottom: 0.75rem;">Archived</h4>
+                <div ng-if="(data.notifications | filter:{status:'archived'}).length === 0" class="empty-state">None</div>
+                <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'archived'})">
+                    {{ notif.message }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="dash-with-sidebar">
+    <!-- Left Sidebar: Student Roster -->
+    <div class="glass-panel card student-roster">
+        <h3 class="card-title">Student Roster</h3>
+        
+        <div ng-if="data.students.length > 0">
+            <div class="list-item" ng-repeat="student in data.students"
+                 ng-class="{'selected': selectedStudent && selectedStudent.student_id === student.student_id}"
+                 ng-click="selectStudent(student)">
+                <div style="font-weight: 600;">{{ student.name }}</div>
+                <div style="font-size: 0.9rem; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                    <span class="status-badge" 
+                          ng-class="{'status-green': student.status === 'green', 'status-yellow': student.status === 'yellow', 'status-red': student.status === 'red'}">
+                        {{ student.status || 'unknown' }}
+                    </span>
+                    <span>GPA: {{ student.performance.gpa || 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+        <div ng-if="data.students.length === 0" class="empty-state">
+            No students assigned to you yet. Use "Schedule Session" to connect with a student.
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+<div class="mentor-main-column">
+
+        <!-- Context Aware Selection Panel -->
+        <div class="glass-panel mentor-action-panel" ng-if="selectedStudent || activeTab === 'schedule'">
+            <h3 ng-if="selectedStudent" style="margin-bottom: 1rem; color: var(--accent-blue)">Managing: {{ selectedStudent.name }}</h3>
+            <h3 ng-if="!selectedStudent && activeTab === 'schedule'" style="margin-bottom: 1rem; color: var(--accent-blue)">Schedule a New Session</h3>
+            
+            <div class="tabs" style="flex-wrap: wrap;">
+                <button class="tab" ng-class="{'active': activeTab === 'schedule'}" ng-click="activeTab = 'schedule'">Schedule Session</button>
+                <button class="tab" ng-class="{'active': activeTab === 'feedback'}" ng-click="activeTab = 'feedback'" ng-disabled="!selectedStudent">Provide Feedback</button>
+                <button class="tab" ng-class="{'active': activeTab === 'escalate'}" ng-click="activeTab = 'escalate'" ng-disabled="!selectedStudent">Issue Escalation</button>
+                <button class="tab" ng-class="{'active': activeTab === 'report'}" ng-click="activeTab = 'report'" ng-disabled="!selectedStudent">File Report</button>
+                <button class="tab" ng-class="{'active': activeTab === 'performance'}" ng-click="activeTab = 'performance'" ng-disabled="!selectedStudent">Update Performance</button>
+                <button class="tab" ng-class="{'active': activeTab === 'broadcast'}" ng-click="activeTab = 'broadcast'" ng-disabled="!selectedStudent">Direct Broadcast</button>
+            </div>
+            <div ng-if="!selectedStudent" style="color: var(--text-secondary); margin-top: 1rem; font-size: 0.95rem;">
+                Select a student from the roster to unlock mentor actions for feedback, escalation, reports, performance updates, and broadcasts.
+            </div>
+
+            <!-- Schedule Session Tab -->
+            <div ng-show="activeTab === 'schedule'">
+                 <form ng-submit="addSession()">
+                    <!-- Student selector when no student is selected from roster -->
+                    <div class="form-group" ng-if="!selectedStudent">
+                        <label>Select Student</label>
+                        <select class="form-control" ng-model="newSession.student_id" required>
+                            <option value="">Choose a student...</option>
+                            <option ng-repeat="s in data.all_students" value="{{s.student_id}}">{{s.name}}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date & Time</label>
+                        <input type="datetime-local" class="form-control" ng-model="newSession.scheduled_at" min="{{minDateTime}}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select class="form-control" ng-model="newSession.type" required>
+                            <option value="confidential">Confidential (Student Only)</option>
+                            <option value="parent">Parent Shared</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--accent-green), var(--accent-blue))">Confirm Schedule</button>
+                </form>
+            </div>
+
+            <!-- Feedback Tab -->
+            <div ng-show="activeTab === 'feedback'">
+                <div class="alert" ng-if="selectedStudent.consent.allow_feedback == 0">
+                    Student has disabled feedback reception in their privacy settings.
+                </div>
+                <form ng-submit="addFeedback()" ng-if="selectedStudent.consent.allow_feedback == 1">
+                    <div class="form-group">
+                        <textarea class="form-control" ng-model="newFeedback.snippet" placeholder="Write a supportive snippet..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn">Send Feedback</button>
+                </form>
+            </div>
+
+            <!-- Escalation Tab -->
+            <div ng-show="activeTab === 'escalate'">
+                <form ng-submit="addEscalation()">
+                    <div class="form-group">
+                        <label>Reason for Escalation</label>
+                        <textarea class="form-control" ng-model="newEscalation.reason" placeholder="Explain the critical issue..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Severity</label>
+                        <select class="form-control" ng-model="newEscalation.severity" required>
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Trigger Type</label>
+                        <input type="text" ng-model="newEscalation.trigger_type" placeholder="e.g. Missed 3 sessions" required>
+                    </div>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, #ef4444, #991b1b)">Trigger Escalation</button>
+                </form>
+            </div>
+        <!-- File Report Tab -->
+            <div ng-show="activeTab === 'report'">
+                <form ng-submit="addReport()">
+                    <div class="form-group">
+                        <label>Month</label>
+                        <input type="date" class="form-control" ng-model="newReport.month" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Report Summary</label>
+                        <textarea class="form-control" ng-model="newReport.summary" placeholder="Details of the month..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Upload Report File (PDF, PNG, JPEG — max 5MB)</label>
+                        <input type="file" class="form-control" style="padding: 0.5rem" onchange="angular.element(this).scope().uploadReportFile(this.files)" accept=".pdf,.png,.jpg,.jpeg">
+                        <div ng-if="uploadingFile" style="color: var(--accent-blue); font-size: 0.85rem; margin-top: 0.5rem">Uploading...</div>
+                        <div ng-if="uploadedFilePath" style="color: var(--accent-green); font-size: 0.85rem; margin-top: 0.5rem">✓ File uploaded: {{ uploadedFilePath }}</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Or enter File URL manually</label>
+                        <input type="url" class="form-control" ng-model="newReport.file_path" placeholder="https://..." ng-required="!uploadedFilePath">
+                    </div>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue))">Submit Report</button>
+                </form>
+            </div>
+
+            <!-- Update Performance Tab -->
+            <div ng-show="activeTab === 'performance'">
+                <form ng-submit="addPerformance()">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem">
+                        <div class="form-group">
+                            <label>GPA</label>
+                            <input type="number" step="0.01" class="form-control" ng-model="newPerformance.gpa" placeholder="3.5" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Attendance (%)</label>
+                            <input type="number" min="0" max="100" class="form-control" ng-model="newPerformance.attendance" placeholder="95" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Exam Score</label>
+                        <input type="number" class="form-control" ng-model="newPerformance.exam_score" placeholder="88">
+                    </div>
+                    <button type="submit" class="btn">Update Performance Metrics</button>
+                </form>
+            </div>
+
+            <!-- Broadcast Tab -->
+            <div ng-show="activeTab === 'broadcast'">
+                <form ng-submit="broadcastMessage()">
+                   <div class="form-group">
+                       <label>Target Audience</label>
+                       <select class="form-control" ng-model="newBroadcast.target" required>
+                            <option value="student">Student Direct</option>
+                            <option value="parent">Parent/Guardian Direct</option>
+                       </select>
+                   </div>
+                   <div class="form-group">
+                       <label>Message Content</label>
+                       <textarea class="form-control" ng-model="newBroadcast.message" placeholder="Type notification message here..." required></textarea>
+                   </div>
+                   <button type="submit" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706)">Send Broadcast</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="glass-panel" ng-if="!selectedStudent && activeTab !== 'schedule'" style="display: flex; justify-content: center; align-items: center; min-height: 200px; color: var(--text-secondary)">
+            Select a student from the roster to manage their profile, or use "Schedule Session" to connect with a new student.
+        </div>
+
+        <!-- System wide panels -->
+        <div class="dashboard-grid">
+            <div class="glass-panel card">
+                <h3 class="card-title">Appointments</h3>
+
+                <!-- Pending / Rescheduled (actionable) -->
+                <h4 style="color: var(--accent-blue); margin-bottom: 0.5rem;" ng-if="(data.appointments | filter:pendingOrRescheduled).length > 0">Pending Action</h4>
+                <div ng-if="(data.appointments | filter:pendingOrRescheduled).length > 0">
+                    <div class="list-item" ng-repeat="apt in data.appointments | filter:pendingOrRescheduled">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.2rem;">
+                            <strong style="color: var(--text-primary);">{{ apt.student_name }}</strong>
+                            <span class="status-badge" ng-class="{'status-yellow': apt.status === 'pending', 'status-green': apt.status === 'rescheduled'}">{{ apt.status | humanize }}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-bottom: 1rem;">Time: {{ apt.requested_time }}</div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="font-size: 0.8rem; color: var(--text-secondary);">New time for reschedule</label>
+                            <input type="datetime-local" class="form-control" ng-model="apt.new_time" min="{{minDateTime}}" style="padding: 0.45rem;" />
+                        </div>
+                        <div style="display: flex; gap: 0.5rem">
+                            <button class="btn" style="padding: 0.5rem; font-size: 0.9rem" ng-click="updateAppointment(apt.appointment_id, 'approved')">Approve</button>
+                            <button class="btn secondary" style="padding: 0.5rem; font-size: 0.9rem" ng-click="updateAppointment(apt.appointment_id, 'rescheduled', apt)">Reschedule</button>
+                            <button class="btn secondary" style="padding: 0.5rem; font-size: 0.9rem" ng-click="updateAppointment(apt.appointment_id, 'rejected')">Reject</button>
+                        </div>
+                    </div>
+                </div>
+                <div ng-if="(data.appointments | filter:pendingOrRescheduled).length === 0" class="empty-state" style="margin-bottom: 1rem;">
+                    No pending appointments.
+                </div>
+
+                <!-- Handled appointments (collapsed) -->
+                <h4 style="color: var(--text-secondary); margin-top: 1rem; margin-bottom: 0.5rem;" ng-if="(data.appointments | filter:handledAppointment).length > 0">History</h4>
+                <div ng-if="(data.appointments | filter:handledAppointment).length > 0">
+                    <div class="list-item" ng-repeat="apt in data.appointments | filter:handledAppointment" style="opacity: 0.6">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <strong style="color: var(--text-primary);">{{ apt.student_name }}</strong>
+                            <span class="status-badge" ng-class="{'status-green': apt.status === 'approved', 'status-red': apt.status === 'rejected' || apt.status === 'cancelled'}">{{ apt.status | humanize }}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: rgba(255,255,255,0.4);">{{ apt.requested_time }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass-panel card">
+                <h3 class="card-title">Recent Escalations</h3>
+                <div ng-if="data.escalations.length > 0">
+                    <div class="list-item" ng-repeat="esc in data.escalations" style="border-left: 3px solid #ef4444">
+                        <strong style="color: var(--text-primary)">{{ esc.student_name }}</strong>
+                        <div style="font-size: 0.8rem; color: #ef4444; margin-top: 0.2rem">Severity: {{ esc.severity }}</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem">"{{ esc.reason }}"</div>
+                    </div>
+                </div>
+                <div ng-if="data.escalations.length === 0" class="empty-state">
+                    No escalations recorded.
+                </div>
+            </div>
+        <div class="glass-panel card full-span-card">
+                <h3 class="card-title">Active Sessions Console</h3>
+                <div ng-if="data.sessions.length > 0">
+                    <div class="list-item" ng-repeat="sess in data.sessions" ng-if="sess.status === 'scheduled'">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                            <strong style="color: var(--text-primary);">Meeting with {{ sess.student_name }}</strong>
+                            <span class="status-badge status-yellow">Scheduled for: {{ sess.scheduled_at }}</span>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0.5rem">
+                            <input type="text" class="form-control" style="padding: 0.5rem" ng-model="sess.notes" placeholder="Type final session notes here to complete it...">
+                        </div>
+                        <div class="appointment-actions">
+                            <button class="btn" ng-click="completeSession(sess)">Mark Completed</button>
+                            <button class="btn secondary" ng-click="cancelSession(sess)">Cancel Session</button>
+                        </div>
+                    </div>
+                    <div ng-if="(data.sessions | filter:{status: 'scheduled'}).length === 0" class="empty-state">
+                        All scheduled sessions have been completed.
+                    </div>
+                </div>
+                <div ng-if="data.sessions.length === 0" class="empty-state">
+                    No sessions scheduled.
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+</div>

@@ -1,0 +1,60 @@
+<div class="dashboard-header">
+    <div>
+        <h2 style="font-size: 2rem;">My Profile</h2>
+        <p style="color: var(--text-secondary);">Update your account details and inspect linked data.</p>
+    </div>
+    <div class="button-group">
+        <button class="btn secondary" ng-click="loadProfile()">↻ Refresh</button>
+        <button class="btn secondary" ng-click="goHome()">Dashboard</button>
+        <button class="btn secondary" ng-click="logout()">Logout</button>
+    </div>
+</div>
+<div class="dashboard-notice" style="margin-bottom: 1rem;">
+    <div class="alert success" ng-if="success">{{ success }}</div>
+    <div class="alert" ng-if="error">{{ error }}</div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="glass-panel card">
+        <h3 class="card-title">Account Information</h3>
+        <form ng-submit="updateProfile()">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" class="form-control" ng-model="user.name" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" class="form-control" ng-model="user.email" required>
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <input type="text" class="form-control" ng-model="user.role_name" disabled>
+            </div>
+            <button type="submit" class="btn">Save Profile</button>
+        </form>
+    </div>
+
+    <div class="glass-panel card" ng-if="students.length > 0">
+        <h3 class="card-title">Student Directory</h3>
+        <div class="list-item" ng-repeat="student in students">
+            <div><strong>{{ student.name }}</strong></div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ student.email }}</div>
+        </div>
+    </div>
+
+    <div class="glass-panel card" ng-if="mentors.length > 0">
+        <h3 class="card-title">Mentor Directory</h3>
+        <div class="list-item" ng-repeat="mentor in mentors">
+            <div><strong>{{ mentor.name }}</strong></div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ mentor.email }}</div>
+        </div>
+    </div>
+
+    <div class="glass-panel card" ng-if="parents.length > 0">
+        <h3 class="card-title">Parent Directory</h3>
+        <div class="list-item" ng-repeat="parent in parents">
+            <div><strong>{{ parent.name }}</strong></div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ parent.email }}</div>
+        </div>
+    </div>
+</div>
