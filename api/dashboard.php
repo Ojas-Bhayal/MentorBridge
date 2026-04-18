@@ -199,22 +199,7 @@ if ($role === 'Student') {
         $student['performance_history'] = $pStmt->fetchAll();
         $student['performance'] = count($student['performance_history']) > 0 ? end($student['performance_history']) : null;
 
-        // Accessible sessions (Type = 'parent')
-        $sStmt = $pdo->prepare("SELECT * FROM Sessions WHERE student_id = ? AND type = 'parent'");
-        $sStmt->execute([$sid]);
-        $student['sessions'] = $sStmt->fetchAll();
-
-        // Reports
-        $rStmt = $pdo->prepare("SELECT * FROM Reports WHERE student_id = ?");
-        $rStmt->execute([$sid]);
-        $student['reports'] = $rStmt->fetchAll();
-
-        // Escalations (Alerts)
-        $eStmt = $pdo->prepare("SELECT * FROM Escalations WHERE student_id = ? ORDER BY triggered_at DESC");
-        $eStmt->execute([$sid]);
-        $student['escalations'] = $eStmt->fetchAll();
-
-        // Consent
+        // Consent (fetch first to determine session visibility)
         $cStmt = $pdo->prepare("SELECT allow_personal_notes, allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
         $cStmt->execute([$sid]);
         $student['consent'] = $cStmt->fetch();
@@ -225,6 +210,25 @@ if ($role === 'Student') {
                 'allow_feedback' => 1
             ];
         }
+
+        // Accessible sessions (show all sessions if student allows session notes sharing)
+        if ($student['consent']['allow_session_notes']) {
+            $sStmt = $pdo->prepare("SELECT * FROM Sessions WHERE student_id = ? AND status != 'cancelled'");
+            $sStmt->execute([$sid]);
+            $student['sessions'] = $sStmt->fetchAll();
+        } else {
+            $student['sessions'] = [];
+        }
+
+        // Reports
+        $rStmt = $pdo->prepare("SELECT * FROM Reports WHERE student_id = ?");
+        $rStmt->execute([$sid]);
+        $student['reports'] = $rStmt->fetchAll();
+
+        // Escalations (Alerts)
+        $eStmt = $pdo->prepare("SELECT * FROM Escalations WHERE student_id = ? ORDER BY triggered_at DESC");
+        $eStmt->execute([$sid]);
+        $student['escalations'] = $eStmt->fetchAll();
     }
     $data['students'] = $linked_students;
 
