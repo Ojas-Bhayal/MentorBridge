@@ -194,6 +194,14 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
                     );
                     $sessStmt->execute([$mentorId, $apt['student_id'], $apt['requested_time']]);
                 }
+
+                // Assign mentor to student if not already assigned
+                $assignCheck = $pdo->prepare('SELECT 1 FROM Mentor_Student WHERE mentor_id = ? AND student_id = ? LIMIT 1');
+                $assignCheck->execute([$mentorId, $apt['student_id']]);
+                if (!$assignCheck->fetchColumn()) {
+                    $assignStmt = $pdo->prepare('INSERT INTO Mentor_Student (mentor_id, student_id) VALUES (?, ?)');
+                    $assignStmt->execute([$mentorId, $apt['student_id']]);
+                }
             }
         }
 

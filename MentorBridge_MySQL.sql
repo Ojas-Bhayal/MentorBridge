@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS Mentors (
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS Mentor_Student (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mentor_id INT NOT NULL,
+    student_id INT NOT NULL,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_mentor_student (mentor_id, student_id),
+    FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Parent_Student (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parent_id INT NOT NULL,
