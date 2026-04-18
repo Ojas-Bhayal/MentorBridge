@@ -87,14 +87,10 @@ function requireMentorStudentLink(PDO $pdo, int $mentorId, int $studentId): void
         jsonError('Student not found.', 404);
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT 1 FROM Appointments WHERE mentor_id = ? AND student_id = ? AND status NOT IN ("rejected", "cancelled") '
-        . 'UNION SELECT 1 FROM Sessions WHERE mentor_id = ? AND student_id = ? AND status != "cancelled" '
-        . 'LIMIT 1'
-    );
-    $stmt->execute([$mentorId, $studentId, $mentorId, $studentId]);
+    $stmt = $pdo->prepare('SELECT 1 FROM Mentor_Student WHERE mentor_id = ? AND student_id = ? LIMIT 1');
+    $stmt->execute([$mentorId, $studentId]);
     if (!$stmt->fetchColumn()) {
-        jsonError('Mentor is not linked to this student.', 403);
+        jsonError('Mentor is not assigned to this student.', 403);
     }
 }
 
