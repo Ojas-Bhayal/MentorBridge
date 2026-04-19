@@ -1,7 +1,8 @@
 <?php
 // api/action_handlers.php
 
-function dispatchAction(PDO $pdo, string $role, int $user_id, int $specific_id, string $action, array $data): void {
+function dispatchAction(PDO $pdo, string $role, int $user_id, int $specific_id, string $action, array $data): void
+{
     if ($role === 'Student') {
         handleStudentAction($pdo, $user_id, $specific_id, $action, $data);
     } else if ($role === 'Mentor') {
@@ -13,7 +14,8 @@ function dispatchAction(PDO $pdo, string $role, int $user_id, int $specific_id, 
     }
 }
 
-function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $action, array $data): void {
+function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $action, array $data): void
+{
     if ($action === 'update_consent') {
         $pn = !empty($data['allow_personal_notes']) ? 1 : 0;
         $sn = !empty($data['allow_session_notes']) ? 1 : 0;
@@ -48,16 +50,19 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
         }
         $stmt = $pdo->prepare("UPDATE Goals SET title = ?, description = ? WHERE goal_id = ? AND student_id = ?");
         $stmt->execute([trim($data['title']), trim($data['description'] ?? ''), $data['goal_id'], $studentId]);
-        if ($stmt->rowCount() === 0) fail('Goal not found.', 404);
+        if ($stmt->rowCount() === 0)
+            fail('Goal not found.', 404);
         jsonSuccess();
     } else if ($action === 'delete_goal') {
-        if (empty($data['goal_id'])) fail('Goal ID is required.');
+        if (empty($data['goal_id']))
+            fail('Goal ID is required.');
         $stmt = $pdo->prepare("DELETE FROM Goals WHERE goal_id = ? AND student_id = ?");
         $stmt->execute([$data['goal_id'], $studentId]);
-        if ($stmt->rowCount() === 0) fail('Goal not found.', 404);
+        if ($stmt->rowCount() === 0)
+            fail('Goal not found.', 404);
         jsonSuccess();
     } else if ($action === 'respond_parent_link') {
-        $requestId = (int)($data['request_id'] ?? 0);
+        $requestId = (int) ($data['request_id'] ?? 0);
         $decision = $data['decision'] ?? '';
         if ($requestId <= 0 || !in_array($decision, ['approve', 'deny'], true)) {
             fail('Invalid parent link response.');
@@ -95,7 +100,8 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
         if (!$mentorExists->fetchColumn()) {
             fail('Selected mentor does not exist.');
         }
-        $stmt = $pdo->prepare('INSERT INTO Appointments (student_id, mentor_id, requested_time, status) VALUES (?, ?, ?, "pending")');
+        // Update the INSERT statement to explicitly label it as confidential
+        $stmt = $pdo->prepare('INSERT INTO Appointments (student_id, mentor_id, requested_time, status, type) VALUES (?, ?, ?, "pending", "confidential")');
         $stmt->execute([$studentId, $data['mentor_id'], $data['requested_time']]);
         jsonSuccess();
     } else if ($action === 'reschedule_appointment') {
@@ -115,16 +121,17 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
     } else if ($action === 'update_notification_status') {
         requireNotEmpty($data['notification_id'] ?? '', 'Notification id');
         requireNotEmpty($data['status'] ?? '', 'Notification status');
-        updateNotificationStatus($pdo, (int)$data['notification_id'], $user_id, $data['status']);
+        updateNotificationStatus($pdo, (int) $data['notification_id'], $user_id, $data['status']);
         jsonSuccess();
     } else {
         fail('Invalid action.');
     }
 }
 
-function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $action, array $data): void {
+function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $action, array $data): void
+{
     if ($action === 'add_feedback') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $snippet = trim($data['snippet'] ?? '');
         if ($studentId <= 0 || $snippet === '') {
             fail('Student and feedback text are required.');
@@ -132,14 +139,14 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         requireMentorStudentLink($pdo, $mentorId, $studentId);
         $consentStmt = $pdo->prepare('SELECT allow_feedback FROM Consent WHERE student_id = ?');
         $consentStmt->execute([$studentId]);
-        if ((int)$consentStmt->fetchColumn() !== 1) {
+        if ((int) $consentStmt->fetchColumn() !== 1) {
             fail('Student has disabled feedback consent.', 403);
         }
         $stmt = $pdo->prepare('INSERT INTO Feedback (student_id, mentor_id, snippet) VALUES (?, ?, ?)');
         $stmt->execute([$studentId, $mentorId, $snippet]);
         jsonSuccess();
     } else if ($action === 'add_escalation') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $severity = $data['severity'] ?? '';
         $allowedSev = ['Low', 'Medium', 'High', 'Critical'];
         if ($studentId <= 0 || empty(trim($data['trigger_type'] ?? '')) || empty(trim($data['reason'] ?? '')) || !in_array($severity, $allowedSev, true)) {
@@ -179,27 +186,36 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         // create a corresponding Session record so the mentor does not need to
         // manually schedule it again from the Sessions tab.
         if ($status === 'approved') {
-            $aptStmt = $pdo->prepare('SELECT student_id, requested_time FROM Appointments WHERE appointment_id = ?');
+            // Include 'type' in the SELECT statement
+            $aptStmt = $pdo->prepare('SELECT student_id, requested_time, type FROM Appointments WHERE appointment_id = ?');
             $aptStmt->execute([$data['appointment_id']]);
             $apt = $aptStmt->fetch();
+
             if ($apt) {
-                // Only create a session if one does not already exist for this exact appointment time.
                 $dupCheck = $pdo->prepare(
                     'SELECT 1 FROM Sessions WHERE mentor_id = ? AND student_id = ? AND scheduled_at = ? AND status != "cancelled" LIMIT 1'
                 );
                 $dupCheck->execute([$mentorId, $apt['student_id'], $apt['requested_time']]);
+
                 if (!$dupCheck->fetchColumn()) {
+                    // Extract the type, fallback to confidential if missing
+                    $sessionType = $apt['type'] ?? 'confidential';
+
+                    // Inject the dynamic $sessionType instead of hardcoding "confidential"
                     $sessStmt = $pdo->prepare(
-                        'INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", "confidential")'
+                        'INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)'
                     );
-                    $sessStmt->execute([$mentorId, $apt['student_id'], $apt['requested_time']]);
+                    $sessStmt->execute([$mentorId, $apt['student_id'], $apt['requested_time'], $sessionType]);
                 }
+                // NEW: Establish permanent Mentor-Student link
+                $linkStmt = $pdo->prepare('INSERT IGNORE INTO Mentor_Student (mentor_id, student_id) VALUES (?, ?)');
+                $linkStmt->execute([$mentorId, $apt['student_id']]);
             }
         }
 
         jsonSuccess();
     } else if ($action === 'add_report') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $month = $data['month'] ?? '';
         $summary = trim($data['summary'] ?? '');
         $filePath = trim($data['file_path'] ?? '');
@@ -213,7 +229,7 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         $stmt->execute([$studentId, $user_id, $month, $summary, $filePath]);
         jsonSuccess();
     } else if ($action === 'add_performance') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $gpa = floatval($data['gpa'] ?? -1);
         $attendance = floatval($data['attendance'] ?? -1);
         $examScore = isset($data['exam_score']) && $data['exam_score'] !== '' ? floatval($data['exam_score']) : null;
@@ -221,8 +237,8 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
             fail('Invalid performance metrics.');
         }
         requireMentorStudentLink($pdo, $mentorId, $studentId);
-        $stmt = $pdo->prepare('INSERT INTO Performance (student_id, gpa, attendance, exam_score) VALUES (?, ?, ?, ?)');
-        $stmt->execute([$studentId, $gpa, $attendance, $examScore]);
+        $stmt = $pdo->prepare('INSERT INTO Performance (student_id, mentor_id, gpa, attendance, exam_score) VALUES (?, ?, ?, ?, ?)');
+        $stmt->execute([$studentId, $mentorId, $gpa, $attendance, $examScore]);
 
         $newStatus = 'green';
         if ($attendance < 80 || $gpa < 2.0) {
@@ -241,14 +257,18 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
 
             $nStmt = $pdo->prepare('INSERT INTO NotificationQueue (user_id, message, type, status) VALUES (?, ?, "alert", "pending")');
             foreach ($parent_user_ids as $puid) {
-                $msg = "AUTOMATED ALERT: Your child's attendance ({$attendance}%) or GPA ({$gpa}) has critically dropped. High Risk level triggered.";
+                // Safely retrieve the mentor's name
+                $mentorName = htmlspecialchars($_SESSION['name'] ?? 'A Mentor', ENT_QUOTES, 'UTF-8');
+
+                // Add contextual text so parents don't panic globally
+                $msg = "AUTOMATED ALERT from " . $mentorName . ": Your child's attendance (" . $attendance . "%) or GPA (" . $gpa . ") in this specific class/program has dropped. Local risk level flagged.";
                 $nStmt->execute([$puid, $msg]);
             }
         }
 
         jsonSuccess();
     } else if ($action === 'send_broadcast') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $target = $data['target'] ?? '';
         $message = trim($data['message'] ?? '');
         if ($studentId <= 0 || !in_array($target, ['student', 'parent'], true) || $message === '') {
@@ -267,9 +287,13 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         }
 
         if (!empty($target_user_ids)) {
+            // Retrieve and sanitize the mentor's name from the active session
+            $mentorName = htmlspecialchars($_SESSION['name'] ?? 'Your Mentor', ENT_QUOTES, 'UTF-8');
+
             $stmt = $pdo->prepare('INSERT INTO NotificationQueue (user_id, message, type, status) VALUES (?, ?, "message", "pending")');
             foreach ($target_user_ids as $tuid) {
-                $stmt->execute([$tuid, 'MENTOR MESSAGE: ' . $message]);
+                // Prepend the mentor's actual name instead of the generic string
+                $stmt->execute([$tuid, 'Message from ' . $mentorName . ': ' . $message]);
             }
             jsonSuccess();
         }
@@ -294,10 +318,10 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
     } else if ($action === 'update_notification_status') {
         requireNotEmpty($data['notification_id'] ?? '', 'Notification id');
         requireNotEmpty($data['status'] ?? '', 'Notification status');
-        updateNotificationStatus($pdo, (int)$data['notification_id'], $user_id, $data['status']);
+        updateNotificationStatus($pdo, (int) $data['notification_id'], $user_id, $data['status']);
         jsonSuccess();
     } else if ($action === 'add_session') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $type = $data['type'] ?? '';
         if ($studentId <= 0 || empty($data['scheduled_at']) || !in_array($type, ['confidential', 'parent'], true)) {
             fail('Invalid session payload.');
@@ -313,7 +337,8 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
     }
 }
 
-function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $action, array $data): void {
+function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $action, array $data): void
+{
     if ($action === 'request_parent_link') {
         $studentEmail = trim(strtolower($data['student_email'] ?? ''));
         if ($studentEmail === '') {
@@ -343,8 +368,8 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         sendNotification($pdo, $student['user_id'], 'A parent (' . $safeName . ') has requested to connect with you.', 'link_request', 'pending');
         jsonSuccess();
     } else if ($action === 'request_appointment') {
-        $studentId = (int)($data['student_id'] ?? 0);
-        $mentorId = (int)($data['mentor_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
+        $mentorId = (int) ($data['mentor_id'] ?? 0);
         if ($studentId <= 0 || $mentorId <= 0 || empty($data['requested_time'])) {
             fail('Student, mentor and requested time are required.');
         }
@@ -357,12 +382,13 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         if (!$mentorExists->fetchColumn()) {
             fail('Selected mentor does not exist.');
         }
-        $stmt = $pdo->prepare('INSERT INTO Appointments (student_id, mentor_id, requested_time, status) VALUES (?, ?, ?, "pending")');
+        // Update the INSERT statement to explicitly label it as a parent meeting
+        $stmt = $pdo->prepare('INSERT INTO Appointments (student_id, mentor_id, requested_time, status, type) VALUES (?, ?, ?, "pending", "parent")');
         $stmt->execute([$studentId, $mentorId, $data['requested_time']]);
         jsonSuccess();
     } else if ($action === 'reschedule_appointment') {
-        $appointmentId = (int)($data['appointment_id'] ?? 0);
-        $studentId = (int)($data['student_id'] ?? 0);
+        $appointmentId = (int) ($data['appointment_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         if ($appointmentId <= 0 || $studentId <= 0 || empty($data['requested_time'])) {
             fail('Appointment id, child and new time are required.');
         }
@@ -374,8 +400,8 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         }
         jsonSuccess();
     } else if ($action === 'cancel_appointment') {
-        $appointmentId = (int)($data['appointment_id'] ?? 0);
-        $studentId = (int)($data['student_id'] ?? 0);
+        $appointmentId = (int) ($data['appointment_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         if ($appointmentId <= 0 || $studentId <= 0) {
             fail('Appointment id and child are required.');
         }
@@ -387,7 +413,7 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         }
         jsonSuccess();
     } else if ($action === 'request_consent_change') {
-        $studentId = (int)($data['student_id'] ?? 0);
+        $studentId = (int) ($data['student_id'] ?? 0);
         $changes = $data['changes'] ?? '';
         if ($studentId <= 0 || empty($changes)) {
             fail('Student id and changes are required.');
@@ -405,15 +431,17 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
     } else if ($action === 'update_notification_status') {
         requireNotEmpty($data['notification_id'] ?? '', 'Notification id');
         requireNotEmpty($data['status'] ?? '', 'Notification status');
-        updateNotificationStatus($pdo, (int)$data['notification_id'], $user_id, $data['status']);
+        updateNotificationStatus($pdo, (int) $data['notification_id'], $user_id, $data['status']);
         jsonSuccess();
     } else if ($action === 'acknowledge_escalation') {
-        $escalationId = (int)($data['escalation_id'] ?? 0);
-        if ($escalationId <= 0) fail('Escalation ID required.');
+        $escalationId = (int) ($data['escalation_id'] ?? 0);
+        if ($escalationId <= 0)
+            fail('Escalation ID required.');
         // Verify the escalation belongs to a linked student
         $eStmt = $pdo->prepare('SELECT e.student_id FROM Escalations e JOIN Parent_Student ps ON e.student_id = ps.student_id WHERE e.escalation_id = ? AND ps.parent_id = ?');
         $eStmt->execute([$escalationId, $parentId]);
-        if (!$eStmt->fetchColumn()) fail('Escalation not found or not linked to your child.', 404);
+        if (!$eStmt->fetchColumn())
+            fail('Escalation not found or not linked to your child.', 404);
         $stmt = $pdo->prepare('UPDATE Escalations SET acknowledged_at = NOW(), acknowledged_by = ? WHERE escalation_id = ?');
         $stmt->execute([$user_id, $escalationId]);
         jsonSuccess();

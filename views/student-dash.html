@@ -14,7 +14,9 @@
                 <p class="subtitle" ng-if="userName">Welcome back, {{ userName }}!</p>
                 <p class="subtitle" ng-if="!userName">Manage your goals, privacy, and tracking.</p>
             </div>
-            <span ng-if="data.status" class="status-badge" ng-class="{'status-green': data.status === 'green', 'status-yellow': data.status === 'yellow', 'status-red': data.status === 'red'}">Risk Level: {{ data.status }}</span>
+            <span ng-if="data.status" class="status-badge"
+                ng-class="{'status-green': data.status === 'green', 'status-yellow': data.status === 'yellow', 'status-red': data.status === 'red'}">Risk
+                Level: {{ data.status }}</span>
         </div>
         <div class="button-group">
             <button class="btn secondary" ng-click="loadDashboard()">↻ Refresh</button>
@@ -31,33 +33,45 @@
     <div class="dashboard-grid student-dashboard-notifications" style="margin-bottom: 1rem;">
         <div class="glass-panel card" style="width: 100%;">
             <h3 class="card-title">Notifications</h3>
-            <div ng-if="!data.notifications || data.notifications.length === 0" class="empty-state">No notifications yet.</div>
+            <div ng-if="!data.notifications || data.notifications.length === 0" class="empty-state">No notifications
+                yet.</div>
             <div ng-if="data.notifications && data.notifications.length > 0">
                 <div class="notifications-columns">
                     <div class="glass-panel card compact-card">
                         <h4 style="margin-bottom: 0.75rem;">Pending</h4>
-                        <div ng-if="(data.notifications | filter:{status:'pending'}).length === 0" class="empty-state">None</div>
+                        <div ng-if="(data.notifications | filter:{status:'pending'}).length === 0" class="empty-state">
+                            None</div>
                         <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'pending'})">
                             <div>{{ notif.message }}</div>
                             <div class="notification-actions">
-                                <button class="btn secondary" ng-click="markNotification(notif, 'read')">Mark Read</button>
-                                <button class="btn secondary" ng-click="markNotification(notif, 'archived')">Archive</button>
+                                <button class="btn" style="background: var(--accent-green);"
+                                    ng-if="notif.type === 'consent_request'" ng-click="approveConsentRequest(notif)">
+                                    ✓ Grant Consent
+                                </button>
+
+                                <button class="btn secondary" ng-click="markNotification(notif, 'read')">Mark
+                                    Read</button>
+                                <button class="btn secondary"
+                                    ng-click="markNotification(notif, 'archived')">Archive</button>
                             </div>
                         </div>
                     </div>
                     <div class="glass-panel card compact-card">
                         <h4 style="margin-bottom: 0.75rem;">Read</h4>
-                        <div ng-if="(data.notifications | filter:{status:'read'}).length === 0" class="empty-state">None</div>
+                        <div ng-if="(data.notifications | filter:{status:'read'}).length === 0" class="empty-state">None
+                        </div>
                         <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'read'})">
                             <div>{{ notif.message }}</div>
                             <div class="notification-actions">
-                                <button class="btn secondary" ng-click="markNotification(notif, 'archived')">Archive</button>
+                                <button class="btn secondary"
+                                    ng-click="markNotification(notif, 'archived')">Archive</button>
                             </div>
                         </div>
                     </div>
                     <div class="glass-panel card compact-card">
                         <h4 style="margin-bottom: 0.75rem;">Archived</h4>
-                        <div ng-if="(data.notifications | filter:{status:'archived'}).length === 0" class="empty-state">None</div>
+                        <div ng-if="(data.notifications | filter:{status:'archived'}).length === 0" class="empty-state">
+                            None</div>
                         <div class="list-item" ng-repeat="notif in (data.notifications | filter:{status:'archived'})">
                             {{ notif.message }}
                         </div>
@@ -77,11 +91,15 @@
                 <div class="performance-summary">
                     <div class="performance-stat">
                         <span class="subtitle">Attendance</span>
-                        <div class="stat-value" style="font-size: 1.25rem; background: none; -webkit-text-fill-color: initial; color: white;">{{ data.performance.attendance }}%</div>
+                        <div class="stat-value"
+                            style="font-size: 1.25rem; background: none; -webkit-text-fill-color: initial; color: white;">
+                            {{ data.performance.attendance }}%</div>
                     </div>
                     <div class="performance-stat">
                         <span class="subtitle">Last Exam</span>
-                        <div class="stat-value" style="font-size: 1.25rem; background: none; -webkit-text-fill-color: initial; color: white;">{{ data.performance.exam_score }}</div>
+                        <div class="stat-value"
+                            style="font-size: 1.25rem; background: none; -webkit-text-fill-color: initial; color: white;">
+                            {{ data.performance.exam_score }}</div>
                     </div>
                 </div>
             </div>
@@ -99,7 +117,9 @@
                             <strong style="color: var(--text-primary);">{{ sess.type | uppercase }} session</strong>
                             <div class="request-meta">{{ sess.scheduled_at }}</div>
                         </div>
-                        <span class="status-badge" ng-class="{'status-green': sess.status === 'completed', 'status-yellow': sess.status === 'scheduled', 'status-red': sess.status === 'cancelled'}">{{ sess.status }}</span>
+                        <span class="status-badge"
+                            ng-class="{'status-green': sess.status === 'completed', 'status-yellow': sess.status === 'scheduled', 'status-red': sess.status === 'cancelled'}">{{
+                            sess.status }}</span>
                     </div>
                     <div class="request-meta">{{ sess.notes || 'No notes recorded for this session yet.' }}</div>
                 </div>
@@ -113,10 +133,12 @@
             <h3 class="card-title">Milestones & Goals</h3>
             <form ng-submit="addGoal()" class="goals-form">
                 <div class="form-group">
-                    <input type="text" ng-model="newGoal.title" placeholder="New goal title..." required class="form-control">
+                    <input type="text" ng-model="newGoal.title" placeholder="New goal title..." required
+                        class="form-control">
                 </div>
                 <div class="form-group">
-                    <input type="text" ng-model="newGoal.description" placeholder="Description (optional)" class="form-control">
+                    <input type="text" ng-model="newGoal.description" placeholder="Description (optional)"
+                        class="form-control">
                 </div>
                 <div class="goal-action-row">
                     <input type="date" ng-model="newGoal.deadline" class="form-control" required>
@@ -129,11 +151,15 @@
                     <div ng-if="!goal.editing">
                         <div class="request-top-row">
                             <div>
-                                <strong class="goal-title" ng-style="{'text-decoration': goal.status === 'completed' ? 'line-through' : 'none'}" ng-click="updateGoalStatus(goal)">{{ goal.title }}</strong>
+                                <strong class="goal-title"
+                                    ng-style="{'text-decoration': goal.status === 'completed' ? 'line-through' : 'none'}"
+                                    ng-click="updateGoalStatus(goal)">{{ goal.title }}</strong>
                                 <div class="request-meta" ng-if="goal.description">{{ goal.description }}</div>
                                 <div class="request-meta">Deadline: {{ goal.deadline }}</div>
                             </div>
-                            <span class="status-badge" ng-class="{'status-yellow': goal.status === 'in_progress', 'status-green': goal.status === 'completed', 'status-red': goal.status === 'pending'}">{{ goal.status | humanize }}</span>
+                            <span class="status-badge"
+                                ng-class="{'status-yellow': goal.status === 'in_progress', 'status-green': goal.status === 'completed', 'status-red': goal.status === 'pending'}">{{
+                                goal.status | humanize }}</span>
                         </div>
                         <div class="goal-action-row">
                             <button class="btn secondary" ng-click="updateGoalStatus(goal)">↻ Cycle Status</button>
@@ -146,7 +172,8 @@
                             <input type="text" ng-model="goal.editTitle" placeholder="Goal title" class="form-control">
                         </div>
                         <div class="form-group">
-                            <input type="text" ng-model="goal.editDescription" placeholder="Description" class="form-control">
+                            <input type="text" ng-model="goal.editDescription" placeholder="Description"
+                                class="form-control">
                         </div>
                         <div class="goal-action-row">
                             <button class="btn" ng-click="saveGoalEdit(goal)">Save</button>
@@ -160,24 +187,20 @@
         <div class="glass-panel card">
             <h3 class="card-title">Privacy Settings</h3>
             <p class="section-note">Manage what your mentors can view.</p>
-            <div class="toggle-row">
-                <span>Allow Personal Notes</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" ng-model="data.consent.allow_personal_notes" ng-true-value="1" ng-false-value="0" ng-change="updateConsent()">
-                    <span class="slider"></span>
-                </label>
-            </div>
+
             <div class="toggle-row">
                 <span>Allow Session Notes sharing</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" ng-model="data.consent.allow_session_notes" ng-true-value="1" ng-false-value="0" ng-change="updateConsent()">
+                    <input type="checkbox" ng-model="data.consent.allow_session_notes" ng-true-value="1"
+                        ng-false-value="0" ng-change="updateConsent()">
                     <span class="slider"></span>
                 </label>
             </div>
             <div class="toggle-row">
                 <span>Accept Mentor Feedback</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" ng-model="data.consent.allow_feedback" ng-true-value="1" ng-false-value="0" ng-change="updateConsent()">
+                    <input type="checkbox" ng-model="data.consent.allow_feedback" ng-true-value="1" ng-false-value="0"
+                        ng-change="updateConsent()">
                     <span class="slider"></span>
                 </label>
             </div>
@@ -205,7 +228,9 @@
                             <strong style="color: var(--text-primary);">{{ esc.trigger_type }}</strong>
                             <div class="request-meta">Triggered on {{ esc.triggered_at }}</div>
                         </div>
-                        <span class="status-badge" ng-class="{'status-red': esc.severity === 'Critical', 'status-yellow': esc.severity === 'High', 'status-green': esc.severity === 'Medium'}">{{ esc.severity }}</span>
+                        <span class="status-badge"
+                            ng-class="{'status-red': esc.severity === 'Critical', 'status-yellow': esc.severity === 'High', 'status-green': esc.severity === 'Medium'}">{{
+                            esc.severity }}</span>
                     </div>
                     <div class="request-meta">{{ esc.reason }}</div>
                 </div>
@@ -226,7 +251,8 @@
                         </div>
                         <span class="request-meta">{{ rep.created_at }}</span>
                     </div>
-                    <a ng-href="{{ rep.file_path }}" target="_blank" rel="noopener noreferrer" class="btn secondary report-download">Download Report</a>
+                    <a ng-href="{{ rep.file_path }}" target="_blank" rel="noopener noreferrer"
+                        class="btn secondary report-download">Download Report</a>
                 </div>
             </div>
             <div ng-if="!data.reports || data.reports.length === 0" class="empty-state">
@@ -269,12 +295,14 @@
                     <label>Choose Mentor</label>
                     <select class="form-control" ng-model="newAppointment.mentor_id" required>
                         <option value="" disabled>Select a faculty member</option>
-                        <option ng-repeat="mentor in data.available_mentors" value="{{ mentor.mentor_id }}">{{ mentor.mentor_name }}</option>
+                        <option ng-repeat="mentor in data.available_mentors" value="{{ mentor.mentor_id }}">{{
+                            mentor.mentor_name }}</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Date & Time</label>
-                    <input type="datetime-local" class="form-control" ng-model="newAppointment.requested_time" min="{{minDateTime}}" required>
+                    <input type="datetime-local" class="form-control" ng-model="newAppointment.requested_time"
+                        min="{{minDateTime}}" required>
                 </div>
                 <button type="submit" class="btn">Request Appointment</button>
             </form>
@@ -287,7 +315,9 @@
                             <strong>With {{ apt.mentor_name }}</strong>
                             <div class="request-meta">Time: {{ apt.requested_time }}</div>
                         </div>
-                        <span class="status-badge" ng-class="{'status-green': apt.status === 'approved', 'status-yellow': apt.status === 'pending' || apt.status === 'rescheduled', 'status-red': apt.status === 'rejected'}">{{ apt.status | humanize }}</span>
+                        <span class="status-badge"
+                            ng-class="{'status-green': apt.status === 'approved', 'status-yellow': apt.status === 'pending' || apt.status === 'rescheduled', 'status-red': apt.status === 'rejected'}">{{
+                            apt.status | humanize }}</span>
                     </div>
                     <div class="request-actions" ng-if="apt.status !== 'rejected' && apt.status !== 'cancelled'">
                         <input type="datetime-local" class="form-control" ng-model="apt.new_time" min="{{minDateTime}}">
