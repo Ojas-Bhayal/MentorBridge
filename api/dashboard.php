@@ -44,7 +44,7 @@ if ($role === 'Student') {
     $data['performance'] = count($data['performance_history']) > 0 ? end($data['performance_history']) : null;
 
     // Student Risk Status
-    $stmt = $pdo->prepare("SELECT status FROM StudentStatus WHERE student_id = ? ORDER BY updated_at DESC LIMIT 1");
+    $stmt = $pdo->prepare("SELECT status FROM StudentStatus WHERE student_id = ? ORDER BY CASE status WHEN 'red' THEN 1 WHEN 'yellow' THEN 2 WHEN 'green' THEN 3 END LIMIT 1");
     $stmt->execute([$specific_id]);
     $data['status'] = $stmt->fetchColumn();
 
@@ -130,17 +130,19 @@ if ($role === 'Student') {
         $student['performance'] = $pStmt->fetch();
 
         // Status
-        $statStmt = $pdo->prepare("SELECT status FROM StudentStatus WHERE student_id = ? ORDER BY updated_at DESC LIMIT 1");
-        $statStmt->execute([$student['student_id']]);
+        // To this:
+        $statStmt = $pdo->prepare("SELECT status FROM StudentStatus WHERE student_id = ? AND mentor_id = ? LIMIT 1");
+        $statStmt->execute([$student['student_id'], $specific_id]);
         $student['status'] = $statStmt->fetchColumn();
 
         // Consent
-        $cStmt = $pdo->prepare("SELECT allow_personal_notes, allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
+        // Remove allow_personal_notes from the SELECT query
+        $cStmt = $pdo->prepare("SELECT allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
         $cStmt->execute([$student['student_id']]);
         $student['consent'] = $cStmt->fetch();
+
         if (!$student['consent']) {
             $student['consent'] = [
-                'allow_personal_notes' => 0,
                 'allow_session_notes' => 0,
                 'allow_feedback' => 1
             ];
@@ -199,12 +201,13 @@ if ($role === 'Student') {
         $student['performance'] = count($student['performance_history']) > 0 ? end($student['performance_history']) : null;
 
         // Consent (fetch first to determine session visibility)
-        $cStmt = $pdo->prepare("SELECT allow_personal_notes, allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
+        // Remove allow_personal_notes from the SELECT query
+        $cStmt = $pdo->prepare("SELECT allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
         $cStmt->execute([$sid]);
         $student['consent'] = $cStmt->fetch();
+
         if (!$student['consent']) {
             $student['consent'] = [
-                'allow_personal_notes' => 0,
                 'allow_session_notes' => 0,
                 'allow_feedback' => 1
             ];

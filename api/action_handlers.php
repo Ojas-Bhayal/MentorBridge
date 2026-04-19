@@ -17,12 +17,12 @@ function dispatchAction(PDO $pdo, string $role, int $user_id, int $specific_id, 
 function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $action, array $data): void
 {
     if ($action === 'update_consent') {
-        $pn = !empty($data['allow_personal_notes']) ? 1 : 0;
+
         $sn = !empty($data['allow_session_notes']) ? 1 : 0;
         $fb = !empty($data['allow_feedback']) ? 1 : 0;
 
         $stmt = $pdo->prepare("INSERT INTO Consent (student_id, allow_personal_notes, allow_session_notes, allow_feedback) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE allow_personal_notes = VALUES(allow_personal_notes), allow_session_notes = VALUES(allow_session_notes), allow_feedback = VALUES(allow_feedback)");
-        $stmt->execute([$studentId, $pn, $sn, $fb]);
+        $stmt->execute([$studentId, $sn, $fb]);
         jsonSuccess();
     } else if ($action === 'add_goal') {
         if (empty(trim($data['title'] ?? '')) || empty($data['deadline'])) {
@@ -247,8 +247,8 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
             $newStatus = 'yellow';
         }
 
-        $statusStmt = $pdo->prepare('UPDATE StudentStatus SET status = ? WHERE student_id = ?');
-        $statusStmt->execute([$newStatus, $studentId]);
+        $statusStmt = $pdo->prepare('INSERT INTO StudentStatus (student_id, mentor_id, status) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)');
+        $statusStmt->execute([$studentId, $mentorId, $newStatus]);
 
         if ($newStatus === 'red') {
             $pStmt = $pdo->prepare('SELECT p.user_id FROM Parent_Student ps JOIN Parents p ON ps.parent_id = p.parent_id WHERE ps.student_id = ?');
