@@ -104,6 +104,20 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
         requireNotEmpty($data['status'] ?? '', 'Notification status');
         updateNotificationStatus($pdo, (int) $data['notification_id'], $user_id, $data['status']);
         jsonSuccess();
+    } else if ($action === 'reschedule_appointment') {
+        if (empty($data['appointment_id']) || empty($data['requested_time']))
+            fail('Required fields missing.');
+        if (strtotime($data['requested_time']) <= time())
+            fail('Time must be in the future.');
+        $stmt = $pdo->prepare('UPDATE Appointments SET requested_time = ?, status = "rescheduled" WHERE appointment_id = ? AND student_id = ?');
+        $stmt->execute([$data['requested_time'], (int) $data['appointment_id'], $studentId]);
+        jsonSuccess();
+    } else if ($action === 'cancel_appointment') {
+        if (empty($data['appointment_id']))
+            fail('Appointment id is required.');
+        $stmt = $pdo->prepare('UPDATE Appointments SET status = "cancelled" WHERE appointment_id = ? AND student_id = ?');
+        $stmt->execute([(int) $data['appointment_id'], $studentId]);
+        jsonSuccess();
     } else {
         fail('Invalid action.');
     }
@@ -190,11 +204,18 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         }
         fail('No target found.');
     } else if ($action === 'add_report') {
+        $studentId = (int) ($data['student_id'] ?? 0);
         $summary = h(trim($data['summary'] ?? ''));
-        if (empty($summary) || empty($data['file_path']))
-            fail('Invalid report.');
+
+        if ($studentId <= 0 || empty($summary) || empty($data['file_path'])) {
+            fail('Invalid report payload.');
+        }
+
+        // FIX: Verify the mentor is authorized to file a report for this student
+        requireMentorStudentLink($pdo, $mentorId, $studentId);
+
         $stmt = $pdo->prepare('INSERT INTO Reports (student_id, generated_by, month, summary, file_path) VALUES (?, ?, ?, ?, ?)');
-        $stmt->execute([$data['student_id'], $user_id, $data['month'], $summary, $data['file_path']]);
+        $stmt->execute([$studentId, $user_id, $data['month'], $summary, $data['file_path']]);
         jsonSuccess();
     } else {
         fail('Invalid action.');
@@ -237,8 +258,52 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         jsonSuccess();
     } else if ($action === 'acknowledge_escalation') {
         $escalationId = (int) ($data['escalation_id'] ?? 0);
+        if ($escalationId <= 0) {
+            fail('Escalation ID required.');
+        }
+
+        // FIX: Verify that the escalation belongs to a student linked to this parent
+        $verifyStmt = $pdo->prepare("
+            SELECT 1 
+            FROM Escalations e 
+            JOIN Parent_Student ps ON e.student_id = ps.student_id 
+            WHERE e.escalation_id = ? AND ps.parent_id = ?
+        ");
+        $verifyStmt->execute([$escalationId, $parentId]); // $specific_id is the parentId
+
+        if (!$verifyStmt->fetchColumn()) {
+            fail('Unauthorized: This escalation does not belong to your child.', 403);
+        }
+
+        // Proceed only if authorized
         $stmt = $pdo->prepare('UPDATE Escalations SET acknowledged_at = NOW(), acknowledged_by = ? WHERE escalation_id = ?');
         $stmt->execute([$user_id, $escalationId]);
+        jsonSuccess();
+    } else if ($action === 'request_appointment') {
+        $childId = (int) ($data['student_id'] ?? 0);
+        $mentorId = (int) ($data['mentor_id'] ?? 0);
+        if ($childId <= 0 || $mentorId <= 0 || empty($data['requested_time']))
+            fail('Required fields missing.');
+        if (strtotime($data['requested_time']) <= time())
+            fail('Time must be in the future.');
+        requireParentStudentLink($pdo, $parentId, $childId); // Authorization check
+        $stmt = $pdo->prepare('INSERT INTO Appointments (student_id, mentor_id, requested_time, status, type) VALUES (?, ?, ?, "pending", "parent")');
+        $stmt->execute([$childId, $mentorId, $data['requested_time']]);
+        jsonSuccess();
+    } else if ($action === 'reschedule_appointment' || $action === 'cancel_appointment') {
+        $appointmentId = (int) ($data['appointment_id'] ?? 0);
+        $childId = (int) ($data['student_id'] ?? 0);
+        if ($appointmentId <= 0 || $childId <= 0)
+            fail('Required fields missing.');
+        requireParentStudentLink($pdo, $parentId, $childId); // Authorization check
+
+        if ($action === 'cancel_appointment') {
+            $stmt = $pdo->prepare('UPDATE Appointments SET status = "cancelled" WHERE appointment_id = ? AND student_id = ?');
+            $stmt->execute([$appointmentId, $childId]);
+        } else {
+            $stmt = $pdo->prepare('UPDATE Appointments SET requested_time = ?, status = "rescheduled" WHERE appointment_id = ? AND student_id = ?');
+            $stmt->execute([$data['requested_time'], $appointmentId, $childId]);
+        }
         jsonSuccess();
     } else {
         fail('Invalid action.');

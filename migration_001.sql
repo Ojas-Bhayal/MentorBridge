@@ -1,29 +1,38 @@
--- migration_001.sql
 START TRANSACTION;
 
--- Fix 1: Add mentor_id to Performance (if you chose Option A)
+-- 1. Performance Table Updates
 ALTER TABLE Performance 
-    ADD COLUMN mentor_id INT NULL AFTER student_id,
-    ADD FOREIGN KEY fk_perf_mentor (mentor_id) 
-        REFERENCES Mentors(mentor_id) ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS mentor_id INT NULL AFTER student_id,
+    MODIFY COLUMN attendance DECIMAL(5,2),
+    ADD CONSTRAINT fk_perf_mentor FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE;
 
--- Fix 2: Fix attendance type
-ALTER TABLE Performance 
-    MODIFY COLUMN attendance DECIMAL(5,2);
+-- 2. Appointment Table Updates
+ALTER TABLE Appointments 
+    ADD COLUMN IF NOT EXISTS type VARCHAR(15) DEFAULT 'confidential' AFTER status;
 
--- Fix 3: Add indexes on frequently queried FK columns
-ALTER TABLE Escalations ADD INDEX idx_esc_student (student_id);
-ALTER TABLE Sessions ADD INDEX idx_sess_mentor (mentor_id), ADD INDEX idx_sess_student (student_id);
-ALTER TABLE Appointments ADD INDEX idx_apt_mentor (mentor_id), ADD INDEX idx_apt_student (student_id);
-ALTER TABLE NotificationQueue ADD INDEX idx_notif_user_status (user_id, status);
-ALTER TABLE Mentor_Student ADD INDEX idx_ms_student (student_id);
+-- 3. Create Authorization Link Table
+CREATE TABLE IF NOT EXISTS Mentor_Student (
+    mentor_id INT,
+    student_id INT,
+    PRIMARY KEY (mentor_id, student_id),
+    FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE
+);
 
--- Fix 4: Rate limiting table (from Fix 8 above)
+-- 4. Create Rate Limiting Table
 CREATE TABLE IF NOT EXISTS LoginAttempts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ip_hash VARCHAR(64) NOT NULL,
     attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ip_time (ip_hash, attempted_at)
 );
+
+-- 5. Seed Default Roles
+INSERT IGNORE INTO Roles (role_id, role_name) VALUES (1, 'Student'), (2, 'Mentor'), (3, 'Parent');
+
+-- 6. Optimization Indexes
+ALTER TABLE Escalations ADD INDEX IF NOT EXISTS idx_esc_student (student_id);
+ALTER TABLE Sessions ADD INDEX IF NOT EXISTS idx_sess_mentor (mentor_id);
+ALTER TABLE NotificationQueue ADD INDEX IF NOT EXISTS idx_notif_user_status (user_id, status);
 
 COMMIT;
