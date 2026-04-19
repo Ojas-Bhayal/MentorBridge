@@ -10,13 +10,15 @@
     <div class="dashboard-header">
         <div>
             <h2>Parent Portal</h2>
-            <p class="subtitle" ng-if="userName">Welcome, {{ userName }}. Track your child's progress, reports, and meetings.</p>
+            <p class="subtitle" ng-if="userName">Welcome, {{ userName }}. Track your child's progress, reports, and
+                meetings.</p>
             <p class="subtitle" ng-if="!userName">Track your child's progress, reports, and meetings.</p>
         </div>
 
         <div class="button-group parent-header-actions">
             <form ng-submit="requestParentLink()" class="parent-link-form">
-                <input type="email" class="form-control" ng-model="newChild.student_email" placeholder="Student Email" required>
+                <input type="email" class="form-control" ng-model="newChild.student_email" placeholder="Student Email"
+                    required>
                 <button type="submit" class="btn secondary">Request Connection</button>
             </form>
             <button class="btn secondary" ng-click="loadDashboard()">↻ Refresh</button>
@@ -31,9 +33,12 @@
     </div>
 
     <div class="tabs">
-        <button class="tab" ng-class="{'active': activeTab === 'progress'}" ng-click="setTab('progress')">Academic Progress</button>
-        <button class="tab" ng-class="{'active': activeTab === 'meetings'}" ng-click="setTab('meetings')">Mentor Meetings</button>
-        <button class="tab" ng-class="{'active': activeTab === 'alerts'}" ng-click="setTab('alerts')">Alerts & Notifications</button>
+        <button class="tab" ng-class="{'active': activeTab === 'progress'}" ng-click="setTab('progress')">Academic
+            Progress</button>
+        <button class="tab" ng-class="{'active': activeTab === 'meetings'}" ng-click="setTab('meetings')">Mentor
+            Meetings</button>
+        <button class="tab" ng-class="{'active': activeTab === 'alerts'}" ng-click="setTab('alerts')">Alerts &
+            Notifications</button>
     </div>
 
     <div ng-show="activeTab === 'progress'" class="tab-panel">
@@ -45,7 +50,9 @@
                         <p class="section-note">Review reports, session notes, and consent settings for this child.</p>
                     </div>
                     <div class="status-pill">
-                        <span class="status-badge" ng-class="{'status-green': student.consent.allow_feedback, 'status-yellow': !student.consent.allow_feedback}">{{ student.consent.allow_feedback ? 'Feedback Allowed' : 'Feedback Blocked' }}</span>
+                        <span class="status-badge"
+                            ng-class="{'status-green': student.consent.allow_feedback, 'status-yellow': !student.consent.allow_feedback}">{{
+                            student.consent.allow_feedback ? 'Feedback Allowed' : 'Feedback Blocked' }}</span>
                     </div>
                 </div>
 
@@ -55,7 +62,8 @@
                         <div class="list-item report-list-item" ng-repeat="rep in student.reports">
                             <div class="student-row">
                                 <strong>{{ rep.month }} Report</strong>
-                                <a ng-href="{{ rep.file_path }}" target="_blank" rel="noopener noreferrer" class="link-button">View Document</a>
+                                <a ng-href="{{ rep.file_path }}" target="_blank" rel="noopener noreferrer"
+                                    class="link-button">View Document</a>
                             </div>
                             <p class="section-note">"{{ rep.summary }}"</p>
                         </div>
@@ -79,15 +87,30 @@
                 </div>
 
                 <div class="student-section">
+                    <h4 class="section-title accent-yellow">Mentor Feedback</h4>
+                    <div ng-if="student.feedback && student.feedback.length > 0">
+                        <div class="list-item" ng-repeat="fb in student.feedback">
+                            <p class="section-note">{{ fb.created_at }} - From: {{ fb.mentor_name }}</p>
+                            <p class="feedback-text">"{{ fb.snippet }}"</p>
+                        </div>
+                    </div>
+                    <div ng-if="!student.feedback || student.feedback.length === 0" class="section-note">
+                        No feedback available or blocked by student.
+                    </div>
+                </div>
+
+                <div class="student-section">
                     <h4 class="section-title accent-green">Data Consent</h4>
                     <p class="section-note">
-                        Personal Notes: {{ student.consent.allow_personal_notes ? 'Allowed' : 'Not Allowed' }}<br>
                         Session Notes: {{ student.consent.allow_session_notes ? 'Allowed' : 'Not Allowed' }}<br>
                         Feedback: {{ student.consent.allow_feedback ? 'Allowed' : 'Not Allowed' }}
                     </p>
                     <div class="parent-action-row">
-                        <input type="text" class="form-control" ng-model="student.consentChangeText" placeholder="Request consent change">
-                        <button class="btn secondary" ng-click="requestConsentChange(student.student_id, student.consentChangeText || 'Parent requested consent review')">Request Change</button>
+                        <input type="text" class="form-control" ng-model="student.consentChangeText"
+                            placeholder="Request consent change">
+                        <button class="btn secondary"
+                            ng-click="requestConsentChange(student.student_id, student.consentChangeText || 'Parent requested consent review')">Request
+                            Change</button>
                     </div>
                 </div>
             </div>
@@ -108,19 +131,22 @@
                         <label>Child</label>
                         <select ng-model="newAppointment.student_id" required class="form-control">
                             <option value="">Select Child</option>
-                            <option ng-repeat="student in data.students" value="{{ student.student_id }}">{{ student.name }}</option>
+                            <option ng-repeat="student in data.students" value="{{ student.student_id }}">{{
+                                student.name }}</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Mentor</label>
                         <select ng-model="newAppointment.mentor_id" required class="form-control">
                             <option value="">Select Mentor</option>
-                            <option ng-repeat="mentor in data.available_mentors" value="{{ mentor.mentor_id }}">{{ mentor.mentor_name }}</option>
+                            <option ng-repeat="mentor in data.available_mentors" value="{{ mentor.mentor_id }}">{{
+                                mentor.mentor_name }}</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Requested Date/Time</label>
-                        <input type="datetime-local" ng-model="newAppointment.requested_time" min="{{minDateTime}}" required class="form-control">
+                        <input type="datetime-local" ng-model="newAppointment.requested_time" min="{{minDateTime}}"
+                            required class="form-control">
                     </div>
                     <button type="submit" class="btn">Send Request</button>
                 </form>
@@ -129,14 +155,18 @@
             <div class="glass-panel card">
                 <h3 class="card-title">Your Appointments</h3>
                 <div ng-if="data.appointments.length > 0">
-                    <div class="list-item appointment-list-item" ng-repeat="apt in data.appointments" ng-if="apt.status !== 'cancelled'">
+                    <div class="list-item appointment-list-item" ng-repeat="apt in data.appointments"
+                        ng-if="apt.status !== 'cancelled'">
                         <div class="student-row">
                             <strong>With {{ apt.mentor_name }} (regarding {{ apt.student_name }})</strong>
-                            <span class="status-badge" ng-class="{'status-green': apt.status === 'approved', 'status-yellow': apt.status === 'pending' || apt.status === 'rescheduled', 'status-red': apt.status === 'rejected'}">{{ apt.status | humanize }}</span>
+                            <span class="status-badge"
+                                ng-class="{'status-green': apt.status === 'approved', 'status-yellow': apt.status === 'pending' || apt.status === 'rescheduled', 'status-red': apt.status === 'rejected'}">{{
+                                apt.status | humanize }}</span>
                         </div>
                         <p class="section-note">Requested for: {{ apt.requested_time }}</p>
                         <div class="request-actions" ng-if="apt.status !== 'rejected' && apt.status !== 'cancelled'">
-                            <input type="datetime-local" class="form-control" ng-model="apt.new_time" min="{{minDateTime}}">
+                            <input type="datetime-local" class="form-control" ng-model="apt.new_time"
+                                min="{{minDateTime}}">
                             <button class="btn secondary" ng-click="rescheduleAppointment(apt)">Reschedule</button>
                             <button class="btn secondary" ng-click="cancelAppointment(apt)">Cancel</button>
                         </div>
@@ -153,7 +183,9 @@
                     <div class="list-item" ng-repeat="req in data.pending_link_requests">
                         <div class="student-row">
                             <strong>{{ req.student_name }}</strong>
-                            <span class="status-badge" ng-class="{'status-yellow': req.status === 'pending', 'status-green': req.status === 'approved', 'status-red': req.status === 'denied'}">{{ req.status | humanize }}</span>
+                            <span class="status-badge"
+                                ng-class="{'status-yellow': req.status === 'pending', 'status-green': req.status === 'approved', 'status-red': req.status === 'denied'}">{{
+                                req.status | humanize }}</span>
                         </div>
                         <p class="section-note">{{ req.student_email }}</p>
                         <p class="section-note">Requested on {{ req.created_at }}</p>
@@ -174,12 +206,16 @@
                     <div class="list-item notification-list-item" ng-repeat="notif in data.notifications">
                         <div class="student-row">
                             <span>{{ notif.message }}</span>
-                            <span class="status-badge" ng-class="{'status-yellow': notif.status === 'pending', 'status-green': notif.status === 'read', 'status-red': notif.status === 'archived'}">{{ notif.status | humanize }}</span>
+                            <span class="status-badge"
+                                ng-class="{'status-yellow': notif.status === 'pending', 'status-green': notif.status === 'read', 'status-red': notif.status === 'archived'}">{{
+                                notif.status | humanize }}</span>
                         </div>
                         <p class="section-note">{{ notif.created_at }}</p>
                         <div class="button-group notification-actions">
-                            <button class="btn secondary" ng-if="notif.status !== 'read'" ng-click="markNotification(notif, 'read')">Mark Read</button>
-                            <button class="btn secondary" ng-if="notif.status !== 'archived'" ng-click="markNotification(notif, 'archived')">Archive</button>
+                            <button class="btn secondary" ng-if="notif.status !== 'read'"
+                                ng-click="markNotification(notif, 'read')">Mark Read</button>
+                            <button class="btn secondary" ng-if="notif.status !== 'archived'"
+                                ng-click="markNotification(notif, 'archived')">Archive</button>
                         </div>
                     </div>
                 </div>
@@ -202,8 +238,10 @@
                                 <p class="section-note">Severity: {{ esc.severity }}</p>
                                 <p>{{ esc.reason }}</p>
                                 <div class="parent-action-row">
-                                    <button class="btn secondary" ng-if="!esc.acknowledged_at" ng-click="acknowledgeEscalation(esc)">✓ Acknowledge</button>
-                                    <span class="section-note" ng-if="esc.acknowledged_at">Acknowledged on {{ esc.acknowledged_at }}</span>
+                                    <button class="btn secondary" ng-if="!esc.acknowledged_at"
+                                        ng-click="acknowledgeEscalation(esc)">✓ Acknowledge</button>
+                                    <span class="section-note" ng-if="esc.acknowledged_at">Acknowledged on {{
+                                        esc.acknowledged_at }}</span>
                                 </div>
                             </div>
                         </div>

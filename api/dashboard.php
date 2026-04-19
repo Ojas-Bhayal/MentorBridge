@@ -34,12 +34,12 @@ $commonData = [
 
 if ($role === 'Student') {
     $data = array_merge($commonData, ['performance' => null, 'goals' => [], 'appointments' => [], 'sessions' => [], 'feedback' => [], 'consent' => null, 'notifications' => []]);
-    
+
     // Performance History (for charts & stats)
     $stmt = $pdo->prepare("SELECT * FROM Performance WHERE student_id = ? ORDER BY recorded_at ASC");
     $stmt->execute([$specific_id]);
     $data['performance_history'] = $stmt->fetchAll();
-    
+
     // Grabbing the newest one explicitly for text stats
     $data['performance'] = count($data['performance_history']) > 0 ? end($data['performance_history']) : null;
 
@@ -47,12 +47,12 @@ if ($role === 'Student') {
     $stmt = $pdo->prepare("SELECT status FROM StudentStatus WHERE student_id = ? ORDER BY updated_at DESC LIMIT 1");
     $stmt->execute([$specific_id]);
     $data['status'] = $stmt->fetchColumn();
-    
+
     // Goals
     $stmt = $pdo->prepare("SELECT * FROM Goals WHERE student_id = ? ORDER BY deadline ASC");
     $stmt->execute([$specific_id]);
     $data['goals'] = $stmt->fetchAll();
-    
+
     // Appointments
     $stmt = $pdo->prepare("SELECT a.*, u.name as mentor_name FROM Appointments a JOIN Mentors m ON a.mentor_id = m.mentor_id JOIN Users u ON m.user_id = u.user_id WHERE a.student_id = ?");
     $stmt->execute([$specific_id]);
@@ -82,7 +82,7 @@ if ($role === 'Student') {
     $stmt = $pdo->prepare("SELECT * FROM Consent WHERE student_id = ? ORDER BY consent_id DESC LIMIT 1");
     $stmt->execute([$specific_id]);
     $data['consent'] = $stmt->fetch();
-    if(!$data['consent']) {
+    if (!$data['consent']) {
         // Init default consent if null
         $insertConsent = $pdo->prepare("INSERT INTO Consent (student_id) VALUES (?)");
         $insertConsent->execute([$specific_id]);
@@ -104,26 +104,26 @@ if ($role === 'Student') {
     $stmt = $pdo->prepare("SELECT m.mentor_id, u.name as mentor_name FROM Mentors m JOIN Users u ON m.user_id = u.user_id");
     $stmt->execute();
     $data['available_mentors'] = $stmt->fetchAll();
-    
+
     jsonSuccess(['data' => $data]);
 
 } else if ($role === 'Mentor') {
     $data = array_merge($commonData, ['students' => [], 'appointments' => [], 'sessions' => [], 'escalations' => []]);
-    
+
     // Student roster: show only linked students (those with active appointments or sessions).
     $stmt = $pdo->prepare(
-        "SELECT DISTINCT s.student_id, u.name FROM Students s JOIN Users u ON s.user_id = u.user_id 
-         WHERE s.student_id IN (
-             SELECT student_id FROM Appointments WHERE mentor_id = ? AND status NOT IN ('rejected', 'cancelled')
-             UNION
-             SELECT student_id FROM Sessions WHERE mentor_id = ? AND status != 'cancelled'
-         ) ORDER BY u.name"
+        "SELECT s.student_id, u.name 
+         FROM Students s 
+         JOIN Users u ON s.user_id = u.user_id 
+         JOIN Mentor_Student ms ON s.student_id = ms.student_id
+         WHERE ms.mentor_id = ? 
+         ORDER BY u.name"
     );
-    $stmt->execute([$specific_id, $specific_id]);
+    $stmt->execute([$specific_id]);
     $roster = $stmt->fetchAll();
-    
+
     // Grab details for roster (Performance, Status, Consent)
-    foreach($roster as &$student) {
+    foreach ($roster as &$student) {
         // Performance
         $pStmt = $pdo->prepare("SELECT gpa, attendance, exam_score FROM Performance WHERE student_id = ? ORDER BY recorded_at DESC LIMIT 1");
         $pStmt->execute([$student['student_id']]);
@@ -162,8 +162,7 @@ if ($role === 'Student') {
     $data['sessions'] = $stmt->fetchAll();
 
     // Escalations issued by this mentor (simplified linking through mentor sessions/appointments to students)
-    // To simplify, we will just pull escalations for students in the mentor's roster.
-    if(count($roster) > 0) {
+    if (count($roster) > 0) {
         $studentIds = array_column($roster, 'student_id');
         $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
         $eStmt = $pdo->prepare("SELECT e.*, u.name as student_name FROM Escalations e JOIN Students s ON e.student_id = s.student_id JOIN Users u ON s.user_id = u.user_id WHERE e.student_id IN ($placeholders) ORDER BY triggered_at DESC");
@@ -180,18 +179,18 @@ if ($role === 'Student') {
     $nStmt = $pdo->prepare("SELECT * FROM NotificationQueue WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
     $nStmt->execute([$user_id]);
     $data['notifications'] = $nStmt->fetchAll();
-    
+
     jsonSuccess(['data' => $data]);
 
 } else if ($role === 'Parent') {
     $data = array_merge($commonData, ['students' => []]);
-    
+
     // Linked Students with full tracking
     $stmt = $pdo->prepare("SELECT s.student_id, u.name FROM Parent_Student ps JOIN Students s ON ps.student_id = s.student_id JOIN Users u ON s.user_id = u.user_id WHERE ps.parent_id = ?");
     $stmt->execute([$specific_id]);
     $linked_students = $stmt->fetchAll();
 
-    foreach($linked_students as &$student) {
+    foreach ($linked_students as &$student) {
         $sid = $student['student_id'];
         // Performance History
         $pStmt = $pdo->prepare("SELECT * FROM Performance WHERE student_id = ? ORDER BY recorded_at ASC");
@@ -199,22 +198,7 @@ if ($role === 'Student') {
         $student['performance_history'] = $pStmt->fetchAll();
         $student['performance'] = count($student['performance_history']) > 0 ? end($student['performance_history']) : null;
 
-        // Accessible sessions (Type = 'parent')
-        $sStmt = $pdo->prepare("SELECT * FROM Sessions WHERE student_id = ? AND type = 'parent'");
-        $sStmt->execute([$sid]);
-        $student['sessions'] = $sStmt->fetchAll();
-
-        // Reports
-        $rStmt = $pdo->prepare("SELECT * FROM Reports WHERE student_id = ?");
-        $rStmt->execute([$sid]);
-        $student['reports'] = $rStmt->fetchAll();
-
-        // Escalations (Alerts)
-        $eStmt = $pdo->prepare("SELECT * FROM Escalations WHERE student_id = ? ORDER BY triggered_at DESC");
-        $eStmt->execute([$sid]);
-        $student['escalations'] = $eStmt->fetchAll();
-
-        // Consent
+        // Consent (fetch first to determine session visibility)
         $cStmt = $pdo->prepare("SELECT allow_personal_notes, allow_session_notes, allow_feedback FROM Consent WHERE student_id = ?");
         $cStmt->execute([$sid]);
         $student['consent'] = $cStmt->fetch();
@@ -225,6 +209,36 @@ if ($role === 'Student') {
                 'allow_feedback' => 1
             ];
         }
+
+        // Accessible sessions (Respect privacy settings and explicit session types)
+        if ($student['consent']['allow_session_notes']) {
+            // If the student has granted global consent, show ALL non-cancelled sessions
+            $sStmt = $pdo->prepare("SELECT * FROM Sessions WHERE student_id = ? AND status != 'cancelled' ORDER BY scheduled_at DESC");
+            $sStmt->execute([$sid]);
+            $student['sessions'] = $sStmt->fetchAll();
+        } else {
+            // FIX: If global consent is off, ONLY show sessions explicitly scheduled as 'parent' type
+            $sStmt = $pdo->prepare("SELECT * FROM Sessions WHERE student_id = ? AND status != 'cancelled' AND type = 'parent' ORDER BY scheduled_at DESC");
+            $sStmt->execute([$sid]);
+            $student['sessions'] = $sStmt->fetchAll();
+        }
+
+        // Reports
+        $rStmt = $pdo->prepare("SELECT * FROM Reports WHERE student_id = ?");
+        $rStmt->execute([$sid]);
+        $student['reports'] = $rStmt->fetchAll();
+        if ($student['consent']['allow_feedback']) {
+            $fStmt = $pdo->prepare("SELECT f.*, u.name as mentor_name FROM Feedback f JOIN Mentors m ON f.mentor_id = m.mentor_id JOIN Users u ON m.user_id = u.user_id WHERE f.student_id = ? ORDER BY f.created_at DESC");
+            $fStmt->execute([$sid]);
+            $student['feedback'] = $fStmt->fetchAll();
+        } else {
+            $student['feedback'] = [];
+        }
+
+        // Escalations (Alerts)
+        $eStmt = $pdo->prepare("SELECT * FROM Escalations WHERE student_id = ? ORDER BY triggered_at DESC");
+        $eStmt->execute([$sid]);
+        $student['escalations'] = $eStmt->fetchAll();
     }
     $data['students'] = $linked_students;
 

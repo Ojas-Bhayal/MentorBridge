@@ -119,7 +119,18 @@ app.controller('studentController', function($scope, $http, $location, csrfStore
             handleError(err, 'Unable to save privacy settings.');
         });
     };
-
+    // NEW: Actionable one-click consent approval
+    $scope.approveConsentRequest = function(notif) {
+        // Auto-enable the active privacy toggles
+        $scope.data.consent.allow_session_notes = 1;
+        $scope.data.consent.allow_feedback = 1;
+        
+        // Trigger the existing save function
+        $scope.updateConsent();
+        
+        // Mark the notification as read to clear it from the pending list
+        $scope.markNotification(notif, 'read');
+    };
     $scope.addGoal = function() {
         var payload = angular.copy($scope.newGoal);
         if (payload.deadline instanceof Date) {
