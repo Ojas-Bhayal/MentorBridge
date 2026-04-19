@@ -50,6 +50,7 @@ app.controller('studentController', function ($scope, $http, $location, csrfStor
             if (response.data.status === 'success') {
                 $scope.data = response.data.data;
                 $scope.loading = false;
+                handleSuccess('Your progress data is now up to date!'); // ADD THIS
                 if ($scope.data.performance_history && $scope.data.performance_history.length > 0) {
                     if (chartTimer) clearTimeout(chartTimer);  // ADD THIS
                     chartTimer = setTimeout(function () {
@@ -147,14 +148,27 @@ app.controller('studentController', function ($scope, $http, $location, csrfStor
     };
 
     $scope.updateGoalStatus = function (goal) {
-        let newStatus = goal.status === 'pending' ? 'in_progress' : (goal.status === 'in_progress' ? 'completed' : 'pending');
-        $http.post('api/actions.php?action=update_goal', { goal_id: goal.goal_id, status: newStatus }).then(function (res) {
+        // 1. Logic Check: If already completed, don't send to server
+        if (goal.status === 'completed') {
+            handleSuccess('This task is already completed!');
+            return;
+        }
+
+        // 2. Logic: Cycle only from pending -> in_progress -> completed
+        let newStatus = goal.status === 'pending' ? 'in_progress' : 'completed';
+
+        $http.post('api/actions.php?action=update_goal', {
+            goal_id: goal.goal_id,
+            status: newStatus
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Unable to update goal status.');
             }
         }).catch(function (err) {
+            // The interceptor in app.js will handle 401/403 errors (redirect to login)
+            // This catch handles other connection or 500 errors
             handleError(err, 'Unable to update goal status.');
         });
     };

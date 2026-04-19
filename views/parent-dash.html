@@ -21,7 +21,9 @@
                     required>
                 <button type="submit" class="btn secondary">Request Connection</button>
             </form>
-            <button class="btn secondary" ng-click="loadDashboard()">↻ Refresh</button>
+            <button type="button" class="btn btn-outline-secondary" ng-click="loadDashboard()">
+                <i class="fas fa-sync-alt"></i> Refresh Data
+            </button>
             <a class="btn secondary" href="#!/profile">Profile</a>
             <button class="btn secondary" ng-click="logout()">Logout</button>
         </div>

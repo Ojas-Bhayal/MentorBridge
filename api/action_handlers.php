@@ -138,6 +138,35 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         $stmt = $pdo->prepare('INSERT INTO Feedback (student_id, mentor_id, snippet) VALUES (?, ?, ?)');
         $stmt->execute([$studentId, $mentorId, $snippet]);
         jsonSuccess();
+    } else if ($action === 'add_session') {
+        $studentId = (int) ($data['student_id'] ?? 0);
+        $type = $data['type'] ?? 'confidential';
+        if ($studentId <= 0 || empty($data['scheduled_at']) || !in_array($type, ['confidential', 'parent'])) {
+            fail('Invalid session payload.');
+        }
+
+        // 1. Verify Authorization
+        requireMentorStudentLink($pdo, $mentorId, $studentId);
+
+        // 2. Create the Session
+        $stmt = $pdo->prepare('INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)');
+        $stmt->execute([$mentorId, $studentId, $data['scheduled_at'], $type]);
+        jsonSuccess();
+
+    } else if ($action === 'complete_session') {
+        if (empty($data['session_id']) || empty(trim($data['notes'] ?? ''))) {
+            fail('Session ID and notes are required.');
+        }
+        $stmt = $pdo->prepare('UPDATE Sessions SET status = "completed", notes = ? WHERE session_id = ? AND mentor_id = ?');
+        $stmt->execute([trim($data['notes']), (int) $data['session_id'], $mentorId]);
+        jsonSuccess();
+
+    } else if ($action === 'cancel_session') {
+        if (empty($data['session_id']))
+            fail('Session ID is required.');
+        $stmt = $pdo->prepare('UPDATE Sessions SET status = "cancelled" WHERE session_id = ? AND mentor_id = ?');
+        $stmt->execute([(int) $data['session_id'], $mentorId]);
+        jsonSuccess();
     } else if ($action === 'add_escalation') {
         $studentId = (int) ($data['student_id'] ?? 0);
         $severity = $data['severity'] ?? 'Medium';
@@ -216,6 +245,30 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
 
         $stmt = $pdo->prepare('INSERT INTO Reports (student_id, generated_by, month, summary, file_path) VALUES (?, ?, ?, ?, ?)');
         $stmt->execute([$studentId, $user_id, $data['month'], $summary, $data['file_path']]);
+        jsonSuccess();
+    } else if ($action === 'approve_appointment' || $action === 'reject_appointment') {
+        $appointmentId = (int) ($data['appointment_id'] ?? 0);
+        if ($appointmentId <= 0)
+            fail('Appointment ID required.');
+
+        $status = ($action === 'approve_appointment') ? 'approved' : 'rejected';
+
+        // Verify ownership: Ensure this appointment is actually assigned to this mentor
+        $stmt = $pdo->prepare('UPDATE Appointments SET status = ? WHERE appointment_id = ? AND mentor_id = ?');
+        $stmt->execute([$status, $appointmentId, $mentorId]);
+        jsonSuccess();
+
+    } else if ($action === 'reschedule_appointment') {
+        $appointmentId = (int) ($data['appointment_id'] ?? 0);
+        $newTime = $data['requested_time'] ?? '';
+        if ($appointmentId <= 0 || empty($newTime))
+            fail('Invalid payload.');
+        if (strtotime($newTime) <= time())
+            fail('Reschedule time must be in the future.');
+
+        // Update status to 'rescheduled' and set the new time
+        $stmt = $pdo->prepare('UPDATE Appointments SET status = "rescheduled", requested_time = ? WHERE appointment_id = ? AND mentor_id = ?');
+        $stmt->execute([$newTime, $appointmentId, $mentorId]);
         jsonSuccess();
     } else {
         fail('Invalid action.');

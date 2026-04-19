@@ -53,6 +53,7 @@ app.controller('mentorController', function ($scope, $http, $location, formatDat
             if (response.data.status === 'success') {
                 $scope.data = response.data.data;
                 $scope.loading = false;
+                handleSuccess('Mentor dashboard updated!'); // ADD THIS
             } else {
                 $scope.loading = false;
                 handleError(response, 'Unable to load mentor dashboard.');
@@ -75,28 +76,57 @@ app.controller('mentorController', function ($scope, $http, $location, formatDat
         $scope.selectedStudent = student;
     };
 
-    $scope.addSession = function () {
-        var payload = angular.copy($scope.newSession);
-        if ($scope.selectedStudent) {
-            payload.student_id = $scope.selectedStudent.student_id;
+    // 1. Unified Session Logic (Removes need for scheduleSession)
+$scope.addSession = function () {
+    if (!$scope.selectedStudent) {
+        handleError(null, 'Please select a student first.');
+        return;
+    }
+
+    var payload = {
+        student_id: $scope.selectedStudent.student_id,
+        scheduled_at: formatDateForMySQL($scope.newSession.scheduled_at),
+        // Logic: Correctly sets 'parent' or 'confidential' for the database
+        type: $scope.newSession.isParentShared ? 'parent' : 'confidential'
+    };
+
+    $http.post('api/actions.php?action=add_session', payload).then(function (res) {
+        if (res.data.status === 'success') {
+            $scope.newSession = { type: 'confidential', isParentShared: false };
+            handleSuccess('Session scheduled successfully.');
+            $scope.loadDashboard();
+        } else {
+            handleError(res, 'Unable to schedule session.');
         }
-        if (!payload.student_id) {
-            handleError(null, 'Please select a student before scheduling a session.');
+    }).catch(function (err) {
+        handleError(err, 'Unable to schedule session.');
+    });
+};
+
+// 2. Fixed Appointment Logic (Corrects the "Invalid Action" error)
+$scope.updateAppointment = function (apt, action) {
+    let payload = { appointment_id: apt.appointment_id };
+    
+    // If reschedule is chosen, use the new_time from the input field in the HTML
+    if (action === 'reschedule') {
+        if (!apt.new_time) {
+            handleError(null, 'Please select a new time for rescheduling.');
             return;
         }
-        payload.scheduled_at = formatDateForMySQL(payload.scheduled_at);
-        $http.post('api/actions.php?action=add_session', payload).then(function (res) {
+        payload.requested_time = formatDateForMySQL(apt.new_time);
+    }
+
+    // This now sends 'approve_appointment', 'reject_appointment', etc.
+    $http.post('api/actions.php?action=' + action + '_appointment', payload)
+        .then(function (res) {
             if (res.data.status === 'success') {
-                $scope.newSession = { type: 'confidential' };
-                handleSuccess('Session scheduled.');
-                $scope.loadDashboard();
+                handleSuccess('Appointment ' + action + 'ed successfully.');
+                $scope.loadDashboard(); 
             } else {
-                handleError(res, 'Unable to schedule session.');
+                handleError(res, 'Action failed.');
             }
-        }).catch(function (err) {
-            handleError(err, 'Unable to schedule session.');
         });
-    };
+};
 
     $scope.addFeedback = function () {
         if (!$scope.selectedStudent) {
@@ -133,26 +163,6 @@ app.controller('mentorController', function ($scope, $http, $location, formatDat
             }
         }).catch(function (err) {
             handleError(err, 'Unable to trigger escalation.');
-        });
-    };
-
-    $scope.updateAppointment = function (appId, status, appointment) {
-        const payload = { appointment_id: appId, status: status };
-        if (status === 'rescheduled') {
-            if (!appointment || !appointment.new_time) {
-                handleError(null, 'Please choose a new date/time before rescheduling.');
-                return;
-            }
-            payload.requested_time = formatDateForMySQL(appointment.new_time);
-        }
-        $http.post('api/actions.php?action=update_appointment', payload).then(function (res) {
-            if (res.data.status === 'success') {
-                $scope.loadDashboard();
-            } else {
-                handleError(res, 'Unable to update appointment status.');
-            }
-        }).catch(function (err) {
-            handleError(err, 'Unable to update appointment status.');
         });
     };
 
