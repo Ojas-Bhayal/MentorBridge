@@ -13,6 +13,9 @@
                 <h2 style="font-size: 2rem;">Student Dashboard</h2>
                 <p class="subtitle" ng-if="userName">Welcome back, {{ userName }}!</p>
                 <p class="subtitle" ng-if="!userName">Manage your goals, privacy, and tracking.</p>
+                <p style="color: var(--accent-green); font-weight: 600; margin-top: 0.5rem; font-size: 0.95rem;">
+                    Parent Connection Code: {{ data.connection_code }}
+                </p>
             </div>
             <span ng-if="data.status" class="status-badge"
                 ng-class="{'status-green': data.status === 'green', 'status-yellow': data.status === 'yellow', 'status-red': data.status === 'red'}">Risk

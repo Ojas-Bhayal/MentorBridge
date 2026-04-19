@@ -76,25 +76,49 @@ app.controller('parentController', function ($scope, $http, $location, formatDat
     function renderParentChart(studentId, history) {
         const ctx = document.getElementById('perfChart_' + studentId);
         if (!ctx) return;
-
         if (window.parentCharts[studentId]) window.parentCharts[studentId].destroy();
 
-        const labels = history.map(h => h.recorded_at.split(' ')[0]);
-        const gpaData = history.map(h => parseFloat(h.gpa));
-        const attData = history.map(h => parseFloat(h.attendance));
+        const labels = [...new Set(history.map(h => h.recorded_at.split(' ')[0]))];
+        const mentors = {};
+        history.forEach(h => {
+            const mName = h.mentor_name || 'System';
+            if (!mentors[mName]) mentors[mName] = { gpa: [], att: [] };
+            mentors[mName].gpa.push({ date: h.recorded_at.split(' ')[0], val: parseFloat(h.gpa) });
+            mentors[mName].att.push({ date: h.recorded_at.split(' ')[0], val: parseFloat(h.attendance) });
+        });
+
+        const datasets = [];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+        let colorIdx = 0;
+
+        Object.keys(mentors).forEach(mName => {
+            const color = colors[colorIdx % colors.length];
+
+            const gpaData = labels.map(label => {
+                const record = mentors[mName].gpa.find(r => r.date === label);
+                return record ? record.val : null;
+            });
+            const attData = labels.map(label => {
+                const record = mentors[mName].att.find(r => r.date === label);
+                return record ? record.val : null;
+            });
+
+            datasets.push({
+                label: 'GPA (' + mName + ')', data: gpaData, borderColor: color,
+                yAxisID: 'y', tension: 0.4, spanGaps: true
+            });
+            datasets.push({
+                label: 'Attendance % (' + mName + ')', data: attData, borderColor: color,
+                yAxisID: 'y1', tension: 0.4, borderDash: [5, 5], spanGaps: true
+            });
+            colorIdx++;
+        });
 
         window.parentCharts[studentId] = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'GPA', data: gpaData, borderColor: '#3b82f6', yAxisID: 'y', tension: 0.4 },
-                    { label: 'Attendance %', data: attData, borderColor: '#10b981', yAxisID: 'y1', tension: 0.4 }
-                ]
-            },
+            data: { labels: labels, datasets: datasets },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
                     y: { type: 'linear', display: true, position: 'left', min: 0, max: 4.0 },
                     y1: { type: 'linear', display: true, position: 'right', min: 0, max: 100 }
@@ -181,12 +205,13 @@ app.controller('parentController', function ($scope, $http, $location, formatDat
     };
 
     $scope.requestParentLink = function () {
-        if (!$scope.newChild.student_email) {
-            handleError(null, "Please provide your child's email to request a connection.");
+        if (!$scope.newChild.student_email || !$scope.newChild.connection_code) {
+            handleError(null, "Please provide your child's email and connection code.");
             return;
         }
         $http.post('api/actions.php?action=request_parent_link', {
-            student_email: $scope.newChild.student_email
+            student_email: $scope.newChild.student_email,
+            connection_code: $scope.newChild.connection_code // Pass the code to the backend
         }).then(function (res) {
             if (res.data.status === 'success') {
                 handleSuccess('Connection request sent to your child.');

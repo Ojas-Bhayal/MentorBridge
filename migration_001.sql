@@ -35,4 +35,10 @@ ALTER TABLE Escalations ADD INDEX IF NOT EXISTS idx_esc_student (student_id);
 ALTER TABLE Sessions ADD INDEX IF NOT EXISTS idx_sess_mentor (mentor_id);
 ALTER TABLE NotificationQueue ADD INDEX IF NOT EXISTS idx_notif_user_status (user_id, status);
 
+ALTER TABLE Students ADD COLUMN connection_code VARCHAR(8) NULL;
+
+-- Generate random 6-character codes for all existing students
+UPDATE Students 
+SET connection_code = UPPER(SUBSTRING(MD5(RAND()), 1, 6)) 
+WHERE connection_code IS NULL;
 COMMIT;

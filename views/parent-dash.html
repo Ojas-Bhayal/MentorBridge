@@ -19,6 +19,8 @@
             <form ng-submit="requestParentLink()" class="parent-link-form">
                 <input type="email" class="form-control" ng-model="newChild.student_email" placeholder="Student Email"
                     required>
+                <input type="text" class="form-control" ng-model="newChild.connection_code" placeholder="6-Digit Code"
+                    required style="max-width: 140px;">
                 <button type="submit" class="btn secondary">Request Connection</button>
             </form>
             <button type="button" class="btn btn-outline-secondary" ng-click="loadDashboard()">
