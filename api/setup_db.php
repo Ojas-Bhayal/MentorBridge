@@ -93,13 +93,17 @@ try {
     if (!empty($parentId) && !empty($studentId)) {
         $pdo->exec("INSERT IGNORE INTO Parent_Student (parent_id, student_id) VALUES ($parentId, $studentId)");
     }
-
+    // NEW: Establish the mandatory authorization link for dummy data
+    if (!empty($mentorId) && !empty($studentId)) {
+        $pdo->exec("INSERT IGNORE INTO Mentor_Student (mentor_id, student_id) VALUES ($mentorId, $studentId)");
+    }
     if (!empty($studentId)) {
         $checkPerf = $pdo->prepare("SELECT 1 FROM Performance WHERE student_id = ? AND gpa = 3.8 AND attendance = 95 AND exam_score = 88.5");
         $checkPerf->execute([$studentId]);
         if (!$checkPerf->fetchColumn()) {
-            $perfStmt = $pdo->prepare("INSERT INTO Performance (student_id, gpa, attendance, exam_score) VALUES (?, 3.8, 95, 88.5)");
-            $perfStmt->execute([$studentId]);
+            // UPDATED: Added mentor_id to the seeding logic
+            $perfStmt = $pdo->prepare("INSERT INTO Performance (student_id, mentor_id, gpa, attendance, exam_score) VALUES (?, ?, 3.8, 95, 88.5)");
+            $perfStmt->execute([$studentId, $mentorId]);
         }
 
         $checkGoal = $pdo->prepare("SELECT 1 FROM Goals WHERE student_id = ? AND title = 'Improve Math Grades'");

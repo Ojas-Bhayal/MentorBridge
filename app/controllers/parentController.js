@@ -50,6 +50,7 @@ app.controller('parentController', function ($scope, $http, $location, formatDat
             if (response.data.status === 'success') {
                 $scope.data = response.data.data;
                 $scope.loading = false;
+                handleSuccess('All child progress data refreshed!'); // ADD THIS
                 if ($scope.data.students) {
                     if (chartTimer) clearTimeout(chartTimer);
                     chartTimer = setTimeout(function () {
