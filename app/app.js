@@ -28,7 +28,7 @@ app.filter('humanize', function() {
 });
 
 app.config(function($routeProvider) {
-    var bust = '?v=' + new Date().getTime();
+    var bust = '?v=6';
     $routeProvider
         .when('/login', {
             templateUrl: 'views/login.html' + bust,
@@ -89,19 +89,13 @@ function checkAuth($q, $http, $location, csrfStore) {
     return deferred.promise;
 }
 
+// AFTER — in-memory only, cleared on page close
 app.factory('csrfStore', function() {
+    var _token = '';
     return {
-        get: function() {
-            return localStorage.getItem('mbCsrfToken') || '';
-        },
-        set: function(token) {
-            if (token) {
-                localStorage.setItem('mbCsrfToken', token);
-            }
-        },
-        clear: function() {
-            localStorage.removeItem('mbCsrfToken');
-        }
+        get: function() { return _token; },
+        set: function(token) { if (token) _token = token; },
+        clear: function() { _token = ''; }
     };
 });
 

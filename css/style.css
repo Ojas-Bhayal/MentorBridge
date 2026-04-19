@@ -646,6 +646,12 @@ a:hover {
     min-width: 160px;
 }
 
+.performance-chart-container {
+    position: relative;
+    height: 220px;
+    width: 100%;
+}
+
 .goals-form {
     margin-bottom: 1rem;
     padding-bottom: 1rem;

@@ -11,6 +11,7 @@ session_set_cookie_params([
 session_start();
 require 'db.php';
 require 'helpers.php';
+require 'security_headers.php'; sendSecurityHeaders();
 
 define('MENTOR_INVITE_CODE', 'MENTOR-INVITE-2026');
 header('Content-Type: application/json');
@@ -18,14 +19,16 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
-function getOrCreateCsrfToken() {
+function getOrCreateCsrfToken()
+{
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
     return $_SESSION['csrf_token'];
 }
 
-function requireLogoutCsrf() {
+function requireLogoutCsrf()
+{
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
         jsonError("Invalid CSRF token", 403);
@@ -39,6 +42,22 @@ if ($method === 'POST' && $action === 'register') {
     $password = $data['password'] ?? '';
     $roleId = isset($data['role_id']) ? intval($data['role_id']) : 0;
     $roleName = trim($data['role'] ?? '');
+    $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '');
+    $window = date('Y-m-d H:i:s', strtotime('-15 minutes'));
+
+    // Count recent attempts
+    $countStmt = $pdo->prepare(
+        "SELECT COUNT(*) FROM LoginAttempts WHERE ip_hash = ? AND attempted_at > ?"
+    );
+    $countStmt->execute([$ipHash, $window]);
+    if ((int)$countStmt->fetchColumn() >= 10) {
+        jsonError("Too many login attempts. Please wait 15 minutes.", 429);
+    }
+
+    // Record this attempt
+    $pdo->prepare("INSERT INTO LoginAttempts (ip_hash) VALUES (?)")->execute([$ipHash]);
+
+    // ... existing password check ...
     if ($name === '') {
         jsonError("Full name is required.");
     }
@@ -64,7 +83,7 @@ if ($method === 'POST' && $action === 'register') {
 
     $roleNameInput = trim($data['role'] ?? '');
     $pwHash = password_hash($password, PASSWORD_DEFAULT);
-    
+
     if ($roleId > 0) {
         $rStmt = $pdo->prepare("SELECT role_name FROM Roles WHERE role_id = ?");
         $rStmt->execute([$roleId]);
@@ -82,13 +101,13 @@ if ($method === 'POST' && $action === 'register') {
     }
 
     if (!$roleName) {
-         jsonError("Invalid role.");
+        jsonError("Invalid role.");
     }
 
     if ($roleName === 'Mentor') {
         $inviteCode = trim($data['invite_code'] ?? '');
         if ($inviteCode !== MENTOR_INVITE_CODE) {
-             jsonError("Invalid or missing mentor invite code.");
+            jsonError("Invalid or missing mentor invite code.");
         }
     }
 
@@ -105,8 +124,6 @@ if ($method === 'POST' && $action === 'register') {
             $specificId = $pdo->lastInsertId();
             $consentStmt = $pdo->prepare("INSERT INTO Consent (student_id) VALUES (?)");
             $consentStmt->execute([$specificId]);
-            $statusStmt = $pdo->prepare("INSERT INTO StudentStatus (student_id, status) VALUES (?, 'green')");
-            $statusStmt->execute([$specificId]);
         } else if ($roleName === 'Mentor') {
             $mentorStmt = $pdo->prepare("INSERT INTO Mentors (user_id) VALUES (?)");
             $mentorStmt->execute([$newUserId]);
@@ -179,7 +196,7 @@ if ($method === 'POST' && $action === 'register') {
         $_SESSION['user_id'] = $user['user_id'];
         $_SESSION['role'] = $user['role_name'];
         $_SESSION['specific_id'] = $specific_id;
-        
+
         echo json_encode([
             "status" => "success",
             "role" => $user['role_name'],

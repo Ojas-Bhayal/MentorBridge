@@ -11,6 +11,7 @@ session_start();
 require 'db.php';
 require 'helpers.php';
 header('Content-Type: application/json');
+require 'security_headers.php'; sendSecurityHeaders(); 
 
 if (!isset($_SESSION['user_id'])) {
     jsonError("Unauthorized", 401);

@@ -21,7 +21,11 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
         $sn = !empty($data['allow_session_notes']) ? 1 : 0;
         $fb = !empty($data['allow_feedback']) ? 1 : 0;
 
-        $stmt = $pdo->prepare("INSERT INTO Consent (student_id, allow_personal_notes, allow_session_notes, allow_feedback) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE allow_personal_notes = VALUES(allow_personal_notes), allow_session_notes = VALUES(allow_session_notes), allow_feedback = VALUES(allow_feedback)");
+        // FIXED — matches actual schema, correct param count
+        $stmt = $pdo->prepare("INSERT INTO Consent (student_id, allow_session_notes, allow_feedback) 
+            VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE 
+            allow_session_notes = VALUES(allow_session_notes), 
+            allow_feedback = VALUES(allow_feedback)");
         $stmt->execute([$studentId, $sn, $fb]);
         jsonSuccess();
     } else if ($action === 'add_goal') {
@@ -108,7 +112,14 @@ function handleStudentAction(PDO $pdo, int $user_id, int $studentId, string $act
         if (empty($data['appointment_id']) || empty($data['requested_time'])) {
             fail('Appointment id and new time are required.');
         }
-        $stmt = $pdo->prepare('UPDATE Appointments SET requested_time = ?, status = "rescheduled" WHERE appointment_id = ? AND student_id = ?');
+        // ADD THIS
+        if (strtotime($data['requested_time']) <= time()) {
+            fail('Requested time must be in the future.');
+        }
+        $stmt = $pdo->prepare(
+            'UPDATE Appointments SET requested_time = ?, status = "rescheduled" 
+         WHERE appointment_id = ? AND student_id = ?'
+        );
         $stmt->execute([$data['requested_time'], $data['appointment_id'], $studentId]);
         jsonSuccess();
     } else if ($action === 'cancel_appointment') {
@@ -186,30 +197,38 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         // create a corresponding Session record so the mentor does not need to
         // manually schedule it again from the Sessions tab.
         if ($status === 'approved') {
-            // Include 'type' in the SELECT statement
-            $aptStmt = $pdo->prepare('SELECT student_id, requested_time, type FROM Appointments WHERE appointment_id = ?');
-            $aptStmt->execute([$data['appointment_id']]);
-            $apt = $aptStmt->fetch();
-
-            if ($apt) {
-                $dupCheck = $pdo->prepare(
-                    'SELECT 1 FROM Sessions WHERE mentor_id = ? AND student_id = ? AND scheduled_at = ? AND status != "cancelled" LIMIT 1'
+            $pdo->beginTransaction();
+            try {
+                $aptStmt = $pdo->prepare(
+                    'SELECT student_id, requested_time, type FROM Appointments WHERE appointment_id = ?'
                 );
-                $dupCheck->execute([$mentorId, $apt['student_id'], $apt['requested_time']]);
+                $aptStmt->execute([$data['appointment_id']]);
+                $apt = $aptStmt->fetch();
 
-                if (!$dupCheck->fetchColumn()) {
-                    // Extract the type, fallback to confidential if missing
-                    $sessionType = $apt['type'] ?? 'confidential';
-
-                    // Inject the dynamic $sessionType instead of hardcoding "confidential"
-                    $sessStmt = $pdo->prepare(
-                        'INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)'
+                if ($apt) {
+                    $dupCheck = $pdo->prepare(
+                        'SELECT 1 FROM Sessions WHERE mentor_id = ? AND student_id = ? 
+                 AND scheduled_at = ? AND status != "cancelled" LIMIT 1'
                     );
-                    $sessStmt->execute([$mentorId, $apt['student_id'], $apt['requested_time'], $sessionType]);
+                    $dupCheck->execute([$mentorId, $apt['student_id'], $apt['requested_time']]);
+
+                    if (!$dupCheck->fetchColumn()) {
+                        $sessionType = $apt['type'] ?? 'confidential';
+                        $sessStmt = $pdo->prepare(
+                            'INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) 
+                     VALUES (?, ?, ?, "scheduled", ?)'
+                        );
+                        $sessStmt->execute([$mentorId, $apt['student_id'], $apt['requested_time'], $sessionType]);
+                    }
+                    $linkStmt = $pdo->prepare(
+                        'INSERT IGNORE INTO Mentor_Student (mentor_id, student_id) VALUES (?, ?)'
+                    );
+                    $linkStmt->execute([$mentorId, $apt['student_id']]);
                 }
-                // NEW: Establish permanent Mentor-Student link
-                $linkStmt = $pdo->prepare('INSERT IGNORE INTO Mentor_Student (mentor_id, student_id) VALUES (?, ?)');
-                $linkStmt->execute([$mentorId, $apt['student_id']]);
+                $pdo->commit();
+            } catch (\Exception $e) {
+                $pdo->rollBack();
+                fail('Failed to finalise appointment approval.', 500);
             }
         }
 
@@ -258,8 +277,8 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
             $nStmt = $pdo->prepare('INSERT INTO NotificationQueue (user_id, message, type, status) VALUES (?, ?, "alert", "pending")');
             foreach ($parent_user_ids as $puid) {
                 // Safely retrieve the mentor's name
-                $mentorName = htmlspecialchars($_SESSION['name'] ?? 'A Mentor', ENT_QUOTES, 'UTF-8');
-
+                // AFTER
+                $mentorName = $_SESSION['name'] ?? 'A Mentor';
                 // Add contextual text so parents don't panic globally
                 $msg = "AUTOMATED ALERT from " . $mentorName . ": Your child's attendance (" . $attendance . "%) or GPA (" . $gpa . ") in this specific class/program has dropped. Local risk level flagged.";
                 $nStmt->execute([$puid, $msg]);
@@ -288,8 +307,8 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
 
         if (!empty($target_user_ids)) {
             // Retrieve and sanitize the mentor's name from the active session
-            $mentorName = htmlspecialchars($_SESSION['name'] ?? 'Your Mentor', ENT_QUOTES, 'UTF-8');
-
+            // AFTER
+            $mentorName = $_SESSION['name'] ?? 'A Mentor';
             $stmt = $pdo->prepare('INSERT INTO NotificationQueue (user_id, message, type, status) VALUES (?, ?, "message", "pending")');
             foreach ($target_user_ids as $tuid) {
                 // Prepend the mentor's actual name instead of the generic string
@@ -329,8 +348,17 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         if (strtotime($data['scheduled_at']) <= time()) {
             fail('Scheduled time must be in the future.');
         }
-        $stmt = $pdo->prepare('INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)');
+        $stmt = $pdo->prepare(
+            'INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)'
+        );
         $stmt->execute([$mentorId, $studentId, $data['scheduled_at'], $type]);
+
+        // ADD THIS — establish the link so mentor can act on this student
+        $linkStmt = $pdo->prepare(
+            'INSERT IGNORE INTO Mentor_Student (mentor_id, student_id) VALUES (?, ?)'
+        );
+        $linkStmt->execute([$mentorId, $studentId]);
+
         jsonSuccess();
     } else {
         fail('Invalid action.');

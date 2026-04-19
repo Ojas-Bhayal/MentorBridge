@@ -1,5 +1,5 @@
 // app/controllers/parentController.js
-app.controller('parentController', function($scope, $http, $location, csrfStore, $interval, formatDateForMySQL) {
+app.controller('parentController', function ($scope, $http, $location, csrfStore, $interval, formatDateForMySQL) {
     $scope.data = {};
     $scope.activeTab = 'progress';
     $scope.newAppointment = {};
@@ -28,42 +28,36 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
     }
 
     // Get user name from auth
-    $http.get('api/auth.php?action=check').then(function(r) {
+    $http.get('api/auth.php?action=check').then(function (r) {
         if (r.data.authenticated) {
             $scope.userName = r.data.name;
         }
     });
-    
-    $scope.logout = function() {
-        $http.post('api/auth.php?action=logout').then(function() {
+
+    $scope.logout = function () {
+        $http.post('api/auth.php?action=logout').then(function () {
             csrfStore.clear();
             $location.path('/login');
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Logout failed.');
         });
     };
 
-    $scope.loadDashboard = function() {
-        $http.get('api/dashboard.php').then(function(response) {
+    // In studentController.js
+    var chartTimer = null;
+
+    $scope.loadDashboard = function () {
+        $http.get('api/dashboard.php').then(function (response) {
             if (response.data.status === 'success') {
                 $scope.data = response.data.data;
                 $scope.loading = false;
-                if ($scope.data.students) {
-                     setTimeout(() => {
-                         $scope.data.students.forEach(student => {
-                             if(student.performance_history && student.performance_history.length > 0) {
-                                 renderParentChart(student.student_id, student.performance_history);
-                             }
-                         });
-                     }, 200);
+                if ($scope.data.performance_history && $scope.data.performance_history.length > 0) {
+                    if (chartTimer) clearTimeout(chartTimer);  // ADD THIS
+                    chartTimer = setTimeout(function () {
+                        renderParentChart($scope.data.performance_history);
+                    }, 200);
                 }
-            } else {
-                $scope.loading = false;
-                handleError(response, 'Unable to load parent dashboard.');
             }
-        }).catch(function(err) {
-            $scope.loading = false;
-            handleError(err, 'Unable to load parent dashboard.');
         });
     };
 
@@ -71,8 +65,8 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
 
     function renderParentChart(studentId, history) {
         const ctx = document.getElementById('perfChart_' + studentId);
-        if(!ctx) return;
-        
+        if (!ctx) return;
+
         if (window.parentCharts[studentId]) window.parentCharts[studentId].destroy();
 
         const labels = history.map(h => h.recorded_at.split(' ')[0]);
@@ -100,31 +94,31 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
         });
     }
 
-    $scope.setTab = function(tabName) {
+    $scope.setTab = function (tabName) {
         $scope.activeTab = tabName;
     };
 
-    $scope.requestAppointment = function() {
-        if(!$scope.newAppointment.student_id || !$scope.newAppointment.mentor_id || !$scope.newAppointment.requested_time) {
+    $scope.requestAppointment = function () {
+        if (!$scope.newAppointment.student_id || !$scope.newAppointment.mentor_id || !$scope.newAppointment.requested_time) {
             handleError(null, 'Please select a child, mentor, and date/time.');
             return;
         }
         var payload = angular.copy($scope.newAppointment);
         payload.requested_time = formatDateForMySQL(payload.requested_time);
-        $http.post('api/actions.php?action=request_appointment', payload).then(function(res) {
-            if(res.data.status === 'success') {
+        $http.post('api/actions.php?action=request_appointment', payload).then(function (res) {
+            if (res.data.status === 'success') {
                 handleSuccess('Appointment requested!');
                 $scope.newAppointment = {};
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Failed to request appointment.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Failed to request appointment.');
         });
     };
 
-    $scope.rescheduleAppointment = function(apt) {
+    $scope.rescheduleAppointment = function (apt) {
         if (!apt.new_time) {
             handleError(null, 'Please select a new date/time.');
             return;
@@ -133,57 +127,57 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
             appointment_id: apt.appointment_id,
             student_id: apt.student_id,
             requested_time: formatDateForMySQL(apt.new_time)
-        }).then(function(res) {
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 handleSuccess('Appointment successfully rescheduled.');
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Failed to reschedule appointment.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Failed to reschedule appointment.');
         });
     };
 
-    $scope.cancelAppointment = function(apt) {
+    $scope.cancelAppointment = function (apt) {
         $http.post('api/actions.php?action=cancel_appointment', {
             appointment_id: apt.appointment_id,
             student_id: apt.student_id
-        }).then(function(res) {
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 handleSuccess('Appointment cancelled successfully.');
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Failed to cancel appointment.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Failed to cancel appointment.');
         });
     };
 
-    $scope.markNotification = function(notif, status) {
+    $scope.markNotification = function (notif, status) {
         $http.post('api/actions.php?action=update_notification_status', {
             notification_id: notif.id,
             status: status
-        }).then(function(res) {
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Unable to update notification status.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Unable to update notification status.');
         });
     };
 
-    $scope.requestParentLink = function() {
+    $scope.requestParentLink = function () {
         if (!$scope.newChild.student_email) {
             handleError(null, "Please provide your child's email to request a connection.");
             return;
         }
         $http.post('api/actions.php?action=request_parent_link', {
             student_email: $scope.newChild.student_email
-        }).then(function(res) {
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 handleSuccess('Connection request sent to your child.');
                 $scope.newChild = {};
@@ -191,39 +185,39 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
             } else {
                 handleError(res, res.data.message || 'Unable to send connection request.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Unable to send connection request.');
         });
     };
 
-    $scope.requestConsentChange = function(studentId, changes) {
+    $scope.requestConsentChange = function (studentId, changes) {
         if (!changes || !changes.trim()) {
             handleError(null, 'Please describe what changes you are requesting.');
             return;
         }
-        $http.post('api/actions.php?action=request_consent_change', {student_id: studentId, changes: changes}).then(function(res) {
-            if(res.data.status === 'success') {
+        $http.post('api/actions.php?action=request_consent_change', { student_id: studentId, changes: changes }).then(function (res) {
+            if (res.data.status === 'success') {
                 handleSuccess('Consent change request sent to student.');
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Failed to send request.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Failed to send request.');
         });
     };
 
-    $scope.acknowledgeEscalation = function(escalation) {
+    $scope.acknowledgeEscalation = function (escalation) {
         $http.post('api/actions.php?action=acknowledge_escalation', {
             escalation_id: escalation.escalation_id
-        }).then(function(res) {
+        }).then(function (res) {
             if (res.data.status === 'success') {
                 handleSuccess('Escalation acknowledged.');
                 $scope.loadDashboard();
             } else {
                 handleError(res, 'Unable to acknowledge escalation.');
             }
-        }).catch(function(err) {
+        }).catch(function (err) {
             handleError(err, 'Unable to acknowledge escalation.');
         });
     };
@@ -231,10 +225,13 @@ app.controller('parentController', function($scope, $http, $location, csrfStore,
     $scope.loadDashboard();
 
     // Polling every 30 seconds
-    var pollInterval = $interval(function() {
-        $scope.loadDashboard();
+    var pollInterval = $interval(function () {
+        if (!document.hidden) {
+            $scope.loadDashboard();
+        }
     }, 30000);
-    $scope.$on('$destroy', function() {
+
+    $scope.$on('$destroy', function () {
         $interval.cancel(pollInterval);
     });
 });
