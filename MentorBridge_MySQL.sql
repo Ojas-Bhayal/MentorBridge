@@ -168,34 +168,3 @@ CREATE TABLE IF NOT EXISTS Reports (
     FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE,
     FOREIGN KEY (generated_by) REFERENCES Users(user_id) ON DELETE SET NULL
 );
-
-ALTER TABLE Appointments 
-ADD COLUMN type VARCHAR(15) DEFAULT 'confidential' CHECK (type IN ('confidential', 'parent'));
-
-CREATE TABLE IF NOT EXISTS Mentor_Student (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    mentor_id INT NOT NULL,
-    student_id INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_mentor_student (mentor_id, student_id),
-    FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE,
-    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE
-);
-
-ALTER TABLE Consent DROP COLUMN allow_personal_notes;
-ALTER TABLE StudentStatus ADD COLUMN mentor_id INT AFTER student_id;
-ALTER TABLE StudentStatus ADD FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE;
-ALTER TABLE StudentStatus ADD UNIQUE KEY uniq_student_mentor_status (student_id, mentor_id);
-
-ALTER TABLE Performance 
-ADD COLUMN mentor_id INT NULL,
-ADD FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE SET NULL;
-
-ALTER TABLE Performance MODIFY COLUMN attendance DECIMAL(5,2);
-
-CREATE TABLE IF NOT EXISTS LoginAttempts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    ip_hash VARCHAR(64) NOT NULL,
-    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_ip_time (ip_hash, attempted_at)
-);

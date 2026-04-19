@@ -2,6 +2,8 @@
 // api/roles.php
 require 'db.php';
 require 'helpers.php';
+require 'security_headers.php';
+sendSecurityHeaders();
 header('Content-Type: application/json');
 
 try {

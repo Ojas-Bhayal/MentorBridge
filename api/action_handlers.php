@@ -392,8 +392,8 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
         $insert = $pdo->prepare('INSERT INTO Parent_Link_Requests (parent_id, student_id, status) VALUES (?, ?, "pending")');
         $insert->execute([$parentId, $student['student_id']]);
 
-        $safeName = htmlspecialchars($_SESSION['name'] ?? 'A parent', ENT_QUOTES, 'UTF-8');
-        sendNotification($pdo, $student['user_id'], 'A parent (' . $safeName . ') has requested to connect with you.', 'link_request', 'pending');
+        $parentName = $_SESSION['name'] ?? 'A parent';
+        sendNotification($pdo, $student['user_id'], 'A parent (' . $parentName . ') has requested to connect with you.', 'link_request', 'pending');
         jsonSuccess();
     } else if ($action === 'request_appointment') {
         $studentId = (int) ($data['student_id'] ?? 0);
