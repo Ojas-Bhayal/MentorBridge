@@ -161,10 +161,15 @@
                                 ng-class="{'status-yellow': goal.status === 'in_progress', 'status-green': goal.status === 'completed', 'status-red': goal.status === 'pending'}">{{
                                 goal.status | humanize }}</span>
                         </div>
-                        <div class="goal-action-row">
+                        <div ng-if="!goal.pendingDelete" class="goal-action-row">
                             <button class="btn secondary" ng-click="updateGoalStatus(goal)">↻ Cycle Status</button>
                             <button class="btn secondary" ng-click="editGoal(goal)">✎ Edit</button>
-                            <button class="btn secondary danger" ng-click="deleteGoal(goal)">✕ Delete</button>
+                            <button class="btn secondary" ng-click="confirmDelete(goal)">✕ Delete</button>
+                        </div>
+                        <div ng-if="goal.pendingDelete" class="goal-action-row">
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">Delete this goal?</span>
+                            <button class="btn" ng-click="deleteGoal(goal)">Yes, delete</button>
+                            <button class="btn secondary" ng-click="cancelDelete(goal)">Cancel</button>
                         </div>
                     </div>
                     <div ng-if="goal.editing">

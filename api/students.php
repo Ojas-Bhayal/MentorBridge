@@ -15,7 +15,11 @@ header('Content-Type: application/json');
 if (!isset($_SESSION['user_id'])) {
     jsonError('Unauthorized', 401);
 }
-
+// Only mentors and parents should see the student directory
+$allowedRoles = ['Mentor', 'Parent'];
+if (!in_array($_SESSION['role'], $allowedRoles, true)) {
+    jsonError('Forbidden', 403);
+}
 $stmt = $pdo->query(
     "SELECT s.student_id, s.user_id, u.name, u.email FROM Students s JOIN Users u ON s.user_id = u.user_id ORDER BY u.name"
 );
