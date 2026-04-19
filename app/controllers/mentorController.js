@@ -15,7 +15,29 @@ app.controller('mentorController', function ($scope, $http, $location, formatDat
 
     $scope.error = '';
     $scope.success = '';
+    $scope.newLink = {};
 
+    $scope.linkStudent = function () {
+        if (!$scope.newLink.student_id) {
+            handleError(null, 'Please select a student to add to your roster.');
+            return;
+        }
+
+        $http.post('api/actions.php?action=link_student', { 
+            student_id: $scope.newLink.student_id 
+        }).then(function (res) {
+            if (res.data.status === 'success') {
+                handleSuccess('Student successfully added to your roster.');
+                $scope.newLink = {}; // Reset the dropdown
+                $scope.loadDashboard(); // Refreshes the roster list automatically
+            } else {
+                handleError(res, 'Unable to link student.');
+            }
+        }).catch(function (err) {
+            handleError(err, 'Unable to link student.');
+        });
+    };
+    
     function clearFlash() {
         $scope.error = '';
         $scope.success = '';

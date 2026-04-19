@@ -27,7 +27,8 @@ function setCsrfCookie()
 // --- 1. REGISTRATION ---
 if ($method === 'POST' && $action === 'register') {
     $data = getJsonInput(); // Uses helper to get JSON
-    $name = htmlspecialchars(trim($data['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    // NEW FIX: Remove manual htmlspecialchars to prevent double-escaping
+    $name = trim($data['name'] ?? '');
     $email = trim($data['email'] ?? '');
     $password = $data['password'] ?? '';
     $roleId = isset($data['role_id']) ? intval($data['role_id']) : 0;
@@ -74,8 +75,11 @@ if ($method === 'POST' && $action === 'register') {
 
         $specificId = null;
         if ($roleName === 'Student') {
-            $sStmt = $pdo->prepare("INSERT INTO Students (user_id) VALUES (?)");
-            $sStmt->execute([$newUserId]);
+            // NEW FIX: Generate a secure 6-character connection code
+            $connCode = strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+            $sStmt = $pdo->prepare("INSERT INTO Students (user_id, connection_code) VALUES (?, ?)");
+            $sStmt->execute([$newUserId, $connCode]);
+
             $specificId = $pdo->lastInsertId();
             // Initialize student consent record
             $pdo->prepare("INSERT INTO Consent (student_id) VALUES (?)")->execute([$specificId]);

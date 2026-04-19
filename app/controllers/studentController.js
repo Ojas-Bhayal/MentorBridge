@@ -64,45 +64,69 @@ app.controller('studentController', function ($scope, $http, $location, csrfStor
     function renderStudentChart(history) {
         const ctx = document.getElementById('performanceChart');
         if (!ctx) return;
-
-        // Prevent duplicate charts
         if (window.myPerfChart) window.myPerfChart.destroy();
 
-        const labels = history.map(h => h.recorded_at.split(' ')[0]);
-        const gpaData = history.map(h => parseFloat(h.gpa));
-        const attData = history.map(h => parseFloat(h.attendance));
+        // 1. Extract unique dates for the shared X-axis
+        const labels = [...new Set(history.map(h => h.recorded_at.split(' ')[0]))];
+
+        // 2. Group records by mentor
+        const mentors = {};
+        history.forEach(h => {
+            const mName = h.mentor_name || 'System';
+            if (!mentors[mName]) mentors[mName] = { gpa: [], att: [] };
+            mentors[mName].gpa.push({ date: h.recorded_at.split(' ')[0], val: parseFloat(h.gpa) });
+            mentors[mName].att.push({ date: h.recorded_at.split(' ')[0], val: parseFloat(h.attendance) });
+        });
+
+        // 3. Build separate datasets for each mentor
+        const datasets = [];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+        let colorIdx = 0;
+
+        Object.keys(mentors).forEach(mName => {
+            const color = colors[colorIdx % colors.length];
+
+            // Map values to aligned dates, insert nulls where missing
+            const gpaData = labels.map(label => {
+                const record = mentors[mName].gpa.find(r => r.date === label);
+                return record ? record.val : null;
+            });
+            const attData = labels.map(label => {
+                const record = mentors[mName].att.find(r => r.date === label);
+                return record ? record.val : null;
+            });
+
+            datasets.push({
+                label: 'GPA (' + mName + ')',
+                data: gpaData,
+                borderColor: color,
+                yAxisID: 'y',
+                tension: 0.4,
+                spanGaps: true // Prevents line breaks on missing dates
+            });
+            datasets.push({
+                label: 'Attendance % (' + mName + ')',
+                data: attData,
+                borderColor: color,
+                yAxisID: 'y1',
+                tension: 0.4,
+                borderDash: [5, 5], // Dashed line for attendance to keep it legible
+                spanGaps: true
+            });
+
+            colorIdx++;
+        });
 
         window.myPerfChart = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'GPA',
-                        data: gpaData,
-                        borderColor: '#3b82f6',
-                        yAxisID: 'y',
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Attendance %',
-                        data: attData,
-                        borderColor: '#10b981',
-                        yAxisID: 'y1',
-                        tension: 0.4
-                    }
-                ]
-            },
+            data: { labels: labels, datasets: datasets },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
                     y: { type: 'linear', display: true, position: 'left', min: 0, max: 4.0 },
                     y1: { type: 'linear', display: true, position: 'right', min: 0, max: 100 }
                 },
-                plugins: {
-                    legend: { labels: { color: '#fff' } }
-                }
+                plugins: { legend: { labels: { color: '#fff' } } }
             }
         });
     }

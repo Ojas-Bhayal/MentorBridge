@@ -74,7 +74,18 @@
         <!-- Left Sidebar: Student Roster -->
         <div class="glass-panel card student-roster">
             <h3 class="card-title">Student Roster</h3>
-
+            <div
+                style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Add Student to
+                    Roster</h4>
+                <form ng-submit="linkStudent()" style="display: flex; gap: 0.5rem;">
+                    <select class="form-control" ng-model="newLink.student_id" required style="padding: 0.6rem;">
+                        <option value="">Select a student...</option>
+                        <option ng-repeat="s in data.all_students" value="{{s.student_id}}">{{s.name}}</option>
+                    </select>
+                    <button type="submit" class="btn" style="padding: 0.6rem 1rem; width: auto;">Add</button>
+                </form>
+            </div>
             <div ng-if="data.students.length > 0">
                 <div class="list-item" ng-repeat="student in data.students"
                     ng-class="{'selected': selectedStudent && selectedStudent.student_id === student.student_id}"
@@ -298,7 +309,12 @@
                         <div class="list-item" ng-repeat="apt in data.appointments | filter:pendingOrRescheduled">
                             <div
                                 style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.2rem;">
-                                <strong style="color: var(--text-primary);">{{ apt.student_name }}</strong>
+                                <strong
+                                    style="color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                                    <span ng-if="apt.type === 'parent'" class="status-badge"
+                                        style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 0.15rem 0.5rem;">Parent</span>
+                                    {{ apt.student_name }}
+                                </strong>
                                 <span class="status-badge"
                                     ng-class="{'status-yellow': apt.status === 'pending', 'status-green': apt.status === 'rescheduled'}">{{
                                     apt.status | humanize }}</span>
@@ -335,7 +351,12 @@
                         <div class="list-item" ng-repeat="apt in data.appointments | filter:handledAppointment"
                             style="opacity: 0.6">
                             <div style="display: flex; justify-content: space-between; align-items: start;">
-                                <strong style="color: var(--text-primary);">{{ apt.student_name }}</strong>
+                                <strong
+                                    style="color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                                    <span ng-if="apt.type === 'parent'" class="status-badge"
+                                        style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 0.15rem 0.5rem;">Parent</span>
+                                    {{ apt.student_name }}
+                                </strong>
                                 <span class="status-badge"
                                     ng-class="{'status-green': apt.status === 'approved', 'status-red': apt.status === 'rejected' || apt.status === 'cancelled'}">{{
                                     apt.status | humanize }}</span>
@@ -349,12 +370,22 @@
                     <h3 class="card-title">Recent Escalations</h3>
                     <div ng-if="data.escalations.length > 0">
                         <div class="list-item" ng-repeat="esc in data.escalations"
-                            style="border-left: 3px solid #ef4444">
-                            <strong style="color: var(--text-primary)">{{ esc.student_name }}</strong>
+                            ng-style="{'border-left': esc.acknowledged_at ? '3px solid var(--accent-green)' : '3px solid #ef4444'}">
+
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <strong style="color: var(--text-primary)">{{ esc.student_name }}</strong>
+                                <span ng-if="esc.acknowledged_at" class="status-badge status-green">Acknowledged</span>
+                            </div>
+
                             <div style="font-size: 0.8rem; color: #ef4444; margin-top: 0.2rem">Severity: {{ esc.severity
-                                }}</div>
+                                }} | Trigger: {{ esc.trigger_type }}</div>
                             <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem">"{{
                                 esc.reason }}"</div>
+
+                            <div ng-if="esc.acknowledged_at"
+                                style="font-size: 0.8rem; color: var(--accent-green); margin-top: 0.5rem;">
+                                ✓ Seen by {{ esc.acknowledged_by_name || 'Parent' }} on {{ esc.acknowledged_at }}
+                            </div>
                         </div>
                     </div>
                     <div ng-if="data.escalations.length === 0" class="empty-state">

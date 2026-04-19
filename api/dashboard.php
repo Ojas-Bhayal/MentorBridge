@@ -25,7 +25,15 @@ $commonData = [
 if ($role === 'Student') {
     $data = array_merge($commonData, ['performance' => null, 'goals' => [], 'appointments' => [], 'sessions' => [], 'feedback' => [], 'consent' => null, 'notifications' => []]);
 
-    $stmt = $pdo->prepare("SELECT * FROM Performance WHERE student_id = ? ORDER BY recorded_at ASC");
+    // NEW FIX: Fetch the name of the mentor who submitted the performance record
+    $stmt = $pdo->prepare("
+    SELECT p.*, COALESCE(u.name, 'General') as mentor_name 
+    FROM Performance p 
+    LEFT JOIN Mentors m ON p.mentor_id = m.mentor_id 
+    LEFT JOIN Users u ON m.user_id = u.user_id 
+    WHERE p.student_id = ? 
+    ORDER BY p.recorded_at ASC
+");
     $stmt->execute([$specific_id]);
     $data['performance_history'] = $stmt->fetchAll();
     $data['performance'] = count($data['performance_history']) > 0 ? end($data['performance_history']) : null;
@@ -77,10 +85,20 @@ if ($role === 'Student') {
     $stmt->execute([$specific_id]);
     $data['parent_link_requests'] = $stmt->fetchAll();
 
-    $stmt = $pdo->prepare("SELECT m.mentor_id, u.name as mentor_name FROM Mentors m JOIN Users u ON m.user_id = u.user_id");
-    $stmt->execute();
+    // NEW FIX: Only fetch mentors explicitly linked to this specific student
+    $stmt = $pdo->prepare("
+        SELECT m.mentor_id, u.name as mentor_name 
+        FROM Mentors m 
+        JOIN Users u ON m.user_id = u.user_id 
+        JOIN Mentor_Student ms ON m.mentor_id = ms.mentor_id 
+        WHERE ms.student_id = ?
+    ");
+    $stmt->execute([$specific_id]);
     $data['available_mentors'] = $stmt->fetchAll();
-
+    // NEW FIX: Fetch the connection code to display on the dashboard
+    $stmt = $pdo->prepare("SELECT connection_code FROM Students WHERE student_id = ?");
+    $stmt->execute([$specific_id]);
+    $data['connection_code'] = $stmt->fetchColumn() ?: 'N/A';
     jsonSuccess(['data' => $data]);
 
 } else if ($role === 'Mentor') {
@@ -114,6 +132,20 @@ if ($role === 'Student') {
     $stmt->execute([$specific_id]);
     $data['sessions'] = $stmt->fetchAll();
 
+    // NEW FIX: Fetch escalations and their parent-acknowledgement status
+    $eStmt = $pdo->prepare("
+        SELECT e.*, u.name as student_name, pu.name as acknowledged_by_name
+        FROM Escalations e 
+        JOIN Students s ON e.student_id = s.student_id 
+        JOIN Users u ON s.user_id = u.user_id 
+        JOIN Mentor_Student ms ON s.student_id = ms.student_id
+        LEFT JOIN Users pu ON e.acknowledged_by = pu.user_id
+        WHERE ms.mentor_id = ?
+        ORDER BY e.triggered_at DESC
+        LIMIT 20
+    ");
+    $eStmt->execute([$specific_id]);
+    $data['escalations'] = $eStmt->fetchAll();
     // FIXED: Notification table name
     $nStmt = $pdo->prepare("SELECT * FROM NotificationQueue WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
     $nStmt->execute([$user_id]);
@@ -135,7 +167,14 @@ if ($role === 'Student') {
     foreach ($linked_students as &$student) {
         $sid = $student['student_id'];
 
-        $pStmt = $pdo->prepare("SELECT * FROM Performance WHERE student_id = ? ORDER BY recorded_at ASC");
+        $pStmt = $pdo->prepare("
+    SELECT p.*, COALESCE(u.name, 'General') as mentor_name 
+    FROM Performance p 
+    LEFT JOIN Mentors m ON p.mentor_id = m.mentor_id 
+    LEFT JOIN Users u ON m.user_id = u.user_id 
+    WHERE p.student_id = ? 
+    ORDER BY p.recorded_at ASC
+");
         $pStmt->execute([$sid]);
         $student['performance_history'] = $pStmt->fetchAll();
         $student['performance'] = count($student['performance_history']) > 0 ? end($student['performance_history']) : null;
@@ -144,17 +183,23 @@ if ($role === 'Student') {
         $cStmt->execute([$sid]);
         $student['consent'] = $cStmt->fetch() ?: ['allow_session_notes' => 0, 'allow_feedback' => 1];
 
-        // Sessions: Fetching only parent-shared type
-        $sStmt = $pdo->prepare("
-            SELECT s.*, um.name as mentor_name 
-            FROM Sessions s
-            JOIN Mentors m ON s.mentor_id = m.mentor_id
-            JOIN Users um ON m.user_id = um.user_id
-            WHERE s.student_id = ? AND s.status != 'cancelled' AND s.type = 'parent' 
-            ORDER BY s.scheduled_at DESC
-        ");
-        $sStmt->execute([$sid]);
-        $student['sessions'] = $sStmt->fetchAll();
+        // NEW FIX: Enforce the student's consent toggle before fetching session notes
+        if (!empty($student['consent']['allow_session_notes'])) {
+            // Sessions: Fetching only parent-shared type
+            $sStmt = $pdo->prepare("
+                SELECT s.*, um.name as mentor_name 
+                FROM Sessions s
+                JOIN Mentors m ON s.mentor_id = m.mentor_id
+                JOIN Users um ON m.user_id = um.user_id
+                WHERE s.student_id = ? AND s.status != 'cancelled' AND s.type = 'parent' 
+                ORDER BY s.scheduled_at DESC
+            ");
+            $sStmt->execute([$sid]);
+            $student['sessions'] = $sStmt->fetchAll();
+        } else {
+            // If consent is denied (or not explicitly true), return an empty array
+            $student['sessions'] = [];
+        }
 
         $rStmt = $pdo->prepare("SELECT * FROM Reports WHERE student_id = ? ORDER BY month DESC");
         $rStmt->execute([$sid]);
@@ -182,6 +227,7 @@ if ($role === 'Student') {
     if (count($linked_students) > 0) {
         $sIds = array_column($linked_students, 'student_id');
         $ph = implode(',', array_fill(0, count($sIds), '?'));
+        // NEW FIX: Filter out 'confidential' student appointments
         $aStmt = $pdo->prepare("
             SELECT a.*, us.name as student_name, um.name as mentor_name
             FROM Appointments a
@@ -189,7 +235,9 @@ if ($role === 'Student') {
             JOIN Users us ON s.user_id = us.user_id
             JOIN Mentors m ON a.mentor_id = m.mentor_id
             JOIN Users um ON m.user_id = um.user_id
-            WHERE a.student_id IN ($ph) AND a.status NOT IN ('rejected', 'cancelled')
+            WHERE a.student_id IN ($ph) 
+              AND a.status NOT IN ('rejected', 'cancelled')
+              AND a.type = 'parent'  -- This is the crucial addition
             ORDER BY a.requested_time DESC
         ");
         $aStmt->execute($sIds);
@@ -198,8 +246,17 @@ if ($role === 'Student') {
         $data['appointments'] = [];
     }
 
-    $mStmt = $pdo->prepare("SELECT m.mentor_id, u.name as mentor_name FROM Mentors m JOIN Users u ON m.user_id = u.user_id ORDER BY u.name");
-    $mStmt->execute();
+    // NEW FIX: Only fetch mentors linked to the parent's children
+    $mStmt = $pdo->prepare("
+        SELECT DISTINCT m.mentor_id, u.name as mentor_name 
+        FROM Mentors m 
+        JOIN Users u ON m.user_id = u.user_id 
+        JOIN Mentor_Student ms ON m.mentor_id = ms.mentor_id 
+        JOIN Parent_Student ps ON ms.student_id = ps.student_id 
+        WHERE ps.parent_id = ? 
+        ORDER BY u.name
+    ");
+    $mStmt->execute([$specific_id]);
     $data['available_mentors'] = $mStmt->fetchAll();
 
     $pReqStmt = $pdo->prepare("SELECT plr.request_id, u.name AS student_name, u.email AS student_email, plr.status, plr.created_at FROM Parent_Link_Requests plr JOIN Students s ON plr.student_id = s.student_id JOIN Users u ON s.user_id = u.user_id WHERE plr.parent_id = ? ORDER BY plr.created_at DESC");
