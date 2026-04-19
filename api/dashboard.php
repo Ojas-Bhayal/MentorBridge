@@ -10,8 +10,9 @@ session_set_cookie_params([
 session_start();
 require 'db.php';
 require 'helpers.php';
+require 'security_headers.php';
+sendSecurityHeaders();
 header('Content-Type: application/json');
-require 'security_headers.php'; sendSecurityHeaders(); 
 
 if (!isset($_SESSION['user_id'])) {
     jsonError("Unauthorized", 401);

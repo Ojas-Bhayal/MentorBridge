@@ -51,13 +51,23 @@ app.controller('parentController', function ($scope, $http, $location, csrfStore
             if (response.data.status === 'success') {
                 $scope.data = response.data.data;
                 $scope.loading = false;
-                if ($scope.data.performance_history && $scope.data.performance_history.length > 0) {
-                    if (chartTimer) clearTimeout(chartTimer);  // ADD THIS
+                if ($scope.data.students) {
+                    if (chartTimer) clearTimeout(chartTimer);
                     chartTimer = setTimeout(function () {
-                        renderParentChart($scope.data.performance_history);
+                        $scope.data.students.forEach(function (student) {
+                            if (student.performance_history && student.performance_history.length > 0) {
+                                renderParentChart(student.student_id, student.performance_history);
+                            }
+                        });
                     }, 200);
                 }
+            } else {
+                $scope.loading = false;
+                handleError(response, 'Unable to load parent dashboard.');
             }
+        }).catch(function (err) {
+            $scope.loading = false;
+            handleError(err, 'Unable to load parent dashboard.');
         });
     };
 

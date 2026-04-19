@@ -42,22 +42,7 @@ if ($method === 'POST' && $action === 'register') {
     $password = $data['password'] ?? '';
     $roleId = isset($data['role_id']) ? intval($data['role_id']) : 0;
     $roleName = trim($data['role'] ?? '');
-    $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '');
-    $window = date('Y-m-d H:i:s', strtotime('-15 minutes'));
-
-    // Count recent attempts
-    $countStmt = $pdo->prepare(
-        "SELECT COUNT(*) FROM LoginAttempts WHERE ip_hash = ? AND attempted_at > ?"
-    );
-    $countStmt->execute([$ipHash, $window]);
-    if ((int)$countStmt->fetchColumn() >= 10) {
-        jsonError("Too many login attempts. Please wait 15 minutes.", 429);
-    }
-
-    // Record this attempt
-    $pdo->prepare("INSERT INTO LoginAttempts (ip_hash) VALUES (?)")->execute([$ipHash]);
-
-    // ... existing password check ...
+    
     if ($name === '') {
         jsonError("Full name is required.");
     }
@@ -160,6 +145,21 @@ if ($method === 'POST' && $action === 'register') {
     $data = json_decode(file_get_contents('php://input'), true);
     $email = trim($data['email'] ?? '');
     $password = $data['password'] ?? '';
+    $ipHash = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? '');
+    $window = date('Y-m-d H:i:s', strtotime('-15 minutes'));
+
+    // Count recent attempts
+    $countStmt = $pdo->prepare(
+        "SELECT COUNT(*) FROM LoginAttempts WHERE ip_hash = ? AND attempted_at > ?"
+    );
+    $countStmt->execute([$ipHash, $window]);
+    if ((int)$countStmt->fetchColumn() >= 10) {
+        jsonError("Too many login attempts. Please wait 15 minutes.", 429);
+    }
+
+    // Record this attempt
+    $pdo->prepare("INSERT INTO LoginAttempts (ip_hash) VALUES (?)")->execute([$ipHash]);
+
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         jsonError("Please enter a valid email address.");
     }
