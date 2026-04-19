@@ -1,27 +1,11 @@
 <?php
 // api/upload.php
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
-session_start();
-require 'db.php';
-require 'helpers.php';
-require 'security_headers.php';
-sendSecurityHeaders();
+require_once 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
     jsonError('Unauthorized', 401);
 }
-
-// CSRF check from header
-$token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
-    jsonError('Invalid CSRF token', 403);
-}
+requireCsrf();
 
 $allowed = [
     'application/pdf' => 'pdf',
@@ -29,7 +13,7 @@ $allowed = [
     'image/jpeg' => 'jpg',
     'image/jpg' => 'jpg'
 ];
-$maxSize = 5 * 1024 * 1024; // 5MB
+$maxSize = 20 * 1024 * 1024; // 20MB
 
 if (!isset($_FILES['file'])) {
     jsonError('No file uploaded.');

@@ -39,9 +39,11 @@ function getJsonInput(): array
 
 function requireCsrf(): void
 {
-    $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    // Note the extra 'X' in X-XSRF-TOKEN
+    $token = $_SERVER['HTTP_X_XSRF_TOKEN'] ?? '';
+
     if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
-        jsonError('Invalid CSRF token', 403);
+        fail('Invalid CSRF token', 403);
     }
 }
 
@@ -116,4 +118,12 @@ function requireParentStudentLink(PDO $pdo, int $parentId, int $studentId): void
     if (!$stmt->fetchColumn()) {
         jsonError('Parent is not linked to this student.', 403);
     }
+}
+/**
+ * Short helper for htmlspecialchars to prevent XSS.
+ * Use this whenever you are displaying user-generated content.
+ */
+function h(?string $text): string
+{
+    return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
 }

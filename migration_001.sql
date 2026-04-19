@@ -5,7 +5,7 @@ START TRANSACTION;
 ALTER TABLE Performance 
     ADD COLUMN mentor_id INT NULL AFTER student_id,
     ADD FOREIGN KEY fk_perf_mentor (mentor_id) 
-        REFERENCES Mentors(mentor_id) ON DELETE SET NULL;
+        REFERENCES Mentors(mentor_id) ON DELETE CASCADE;
 
 -- Fix 2: Fix attendance type
 ALTER TABLE Performance 

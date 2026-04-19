@@ -6,8 +6,8 @@ function formatDateForMySQL(date) {
     if (!date) return '';
     if (typeof date === 'string') return date.replace('T', ' ').substring(0, 19);
     var d = new Date(date);
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
-        + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+        + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
 }
 
 function formatDateOnly(date) {
@@ -21,13 +21,13 @@ app.constant('formatDateForMySQL', formatDateForMySQL);
 app.constant('formatDateOnly', formatDateOnly);
 
 // Filter: humanize status strings (e.g. 'in_progress' -> 'in progress')
-app.filter('humanize', function() {
-    return function(input) {
+app.filter('humanize', function () {
+    return function (input) {
         return input ? input.replace(/_/g, ' ') : '';
     };
 });
 
-app.config(function($routeProvider) {
+app.config(function ($routeProvider) {
     var bust = '?v=6';
     $routeProvider
         .when('/login', {
@@ -65,7 +65,7 @@ app.config(function($routeProvider) {
 
 function checkAuth($q, $http, $location, csrfStore) {
     const deferred = $q.defer();
-    $http.get('api/auth.php?action=check').then(function(response) {
+    $http.get('api/auth.php?action=check').then(function (response) {
         if (response.data.authenticated) {
             csrfStore.set(response.data.csrf_token);
             const path = $location.path();
@@ -82,7 +82,7 @@ function checkAuth($q, $http, $location, csrfStore) {
             $location.path('/login');
             deferred.reject();
         }
-    }).catch(function() {
+    }).catch(function () {
         $location.path('/login');
         deferred.reject();
     });
@@ -90,31 +90,26 @@ function checkAuth($q, $http, $location, csrfStore) {
 }
 
 // AFTER — in-memory only, cleared on page close
-app.factory('csrfStore', function() {
+app.factory('csrfStore', function () {
     var _token = '';
     return {
-        get: function() { return _token; },
-        set: function(token) { if (token) _token = token; },
-        clear: function() { _token = ''; }
+        get: function () { return _token; },
+        set: function (token) { if (token) _token = token; },
+        clear: function () { _token = ''; }
     };
 });
 
-app.config(function($httpProvider) {
-    $httpProvider.interceptors.push(function($q, $injector, csrfStore) {
+// Inside your app config in app/app.js
+app.config(function ($httpProvider) {
+    // 1. Enable automated CSRF cookie handling
+    $httpProvider.defaults.xsrfCookieName = 'XSRF-TOKEN';
+    $httpProvider.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
+
+    // 2. Keep a simple interceptor only for handling 401/403 errors (Redirect to login)
+    $httpProvider.interceptors.push(function ($q, $injector) {
         return {
-            request: function(config) {
-                if (config.method === 'POST') {
-                    const token = csrfStore.get();
-                    if (token) {
-                        config.headers = config.headers || {};
-                        config.headers['X-CSRF-Token'] = token;
-                    }
-                }
-                return config;
-            },
-            responseError: function(rejection) {
+            responseError: function (rejection) {
                 if (rejection && (rejection.status === 401 || rejection.status === 403)) {
-                    csrfStore.clear();
                     const $location = $injector.get('$location');
                     if ($location.path() !== '/login') {
                         $location.path('/login');
