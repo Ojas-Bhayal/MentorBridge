@@ -1,18 +1,6 @@
 <?php
 // api/dashboard.php
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
-session_start();
-require 'db.php';
-require 'helpers.php';
-require 'security_headers.php';
-sendSecurityHeaders();
-header('Content-Type: application/json');
+require_once 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
     jsonError("Unauthorized", 401);

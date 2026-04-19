@@ -1,5 +1,5 @@
 // app/controllers/parentController.js
-app.controller('parentController', function ($scope, $http, $location, csrfStore, $interval, formatDateForMySQL) {
+app.controller('parentController', function ($scope, $http, $location, formatDateForMySQL) {
     $scope.data = {};
     $scope.activeTab = 'progress';
     $scope.newAppointment = {};
@@ -36,14 +36,13 @@ app.controller('parentController', function ($scope, $http, $location, csrfStore
 
     $scope.logout = function () {
         $http.post('api/auth.php?action=logout').then(function () {
-            csrfStore.clear();
+            // 2. Remove csrfStore.clear() - browser handles cookie cleanup
             $location.path('/login');
         }).catch(function (err) {
             handleError(err, 'Logout failed.');
         });
     };
 
-    // In studentController.js
     var chartTimer = null;
 
     $scope.loadDashboard = function () {
@@ -234,14 +233,4 @@ app.controller('parentController', function ($scope, $http, $location, csrfStore
 
     $scope.loadDashboard();
 
-    // Polling every 30 seconds
-    var pollInterval = $interval(function () {
-        if (!document.hidden) {
-            $scope.loadDashboard();
-        }
-    }, 30000);
-
-    $scope.$on('$destroy', function () {
-        $interval.cancel(pollInterval);
-    });
 });
