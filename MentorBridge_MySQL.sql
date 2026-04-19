@@ -66,14 +66,15 @@ CREATE TABLE IF NOT EXISTS StudentStatus (
 
 -- 4. PERFORMANCE
 CREATE TABLE IF NOT EXISTS Performance (
-    
     performance_id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT,
+    mentor_id INT, -- Add this
     gpa DECIMAL(3,2),
-    attendance INT,
+    attendance DECIMAL(5,2), -- Updated to DECIMAL for accuracy
     exam_score DECIMAL(5,2),
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE -- Add this
 );
 
 -- 5. CONSENT
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS Appointments (
     mentor_id INT,
     requested_time TIMESTAMP,
     status VARCHAR(15) CHECK (status IN ('pending', 'approved', 'rescheduled', 'rejected', 'cancelled')),
+    type VARCHAR(15) DEFAULT 'confidential', -- Add this
     FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE,
     FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE
 );
@@ -167,4 +169,19 @@ CREATE TABLE IF NOT EXISTS Reports (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE,
     FOREIGN KEY (generated_by) REFERENCES Users(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS Mentor_Student (
+    mentor_id INT,
+    student_id INT,
+    PRIMARY KEY (mentor_id, student_id),
+    FOREIGN KEY (mentor_id) REFERENCES Mentors(mentor_id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES Students(student_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS LoginAttempts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_hash VARCHAR(64) NOT NULL,
+    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_ip_time (ip_hash, attempted_at)
 );
