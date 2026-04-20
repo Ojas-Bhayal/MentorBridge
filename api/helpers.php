@@ -5,6 +5,12 @@ function jsonResponse(array $data, int $code = 200): void
 {
     http_response_code($code);
     header('Content-Type: application/json');
+
+    // NEW FIX: Prevent browsers from caching dynamic API responses
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Cache-Control: post-check=0, pre-check=0', false);
+    header('Pragma: no-cache');
+
     echo json_encode($data);
     exit;
 }

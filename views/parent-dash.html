@@ -23,8 +23,8 @@
                     required style="max-width: 140px;">
                 <button type="submit" class="btn secondary">Request Connection</button>
             </form>
-            <button type="button" class="btn btn-outline-secondary" ng-click="loadDashboard()">
-                <i class="fas fa-sync-alt"></i> Refresh Data
+            <button type="button" class="btn secondary" ng-click="loadDashboard()">
+                ↻ Refresh Data
             </button>
             <a class="btn secondary" href="#!/profile">Profile</a>
             <button class="btn secondary" ng-click="logout()">Logout</button>
@@ -180,7 +180,28 @@
                     No appointments requested.
                 </div>
             </div>
+            <div class="glass-panel card">
+                <h3 class="card-title">Scheduled Mentor Sessions</h3>
+                <p class="section-note" style="margin-bottom: 1rem;">These are official meetings locked in by the
+                    mentor.</p>
 
+                <div ng-if="data.upcoming_sessions && data.upcoming_sessions.length > 0">
+                    <div class="list-item appointment-list-item" ng-repeat="sess in data.upcoming_sessions">
+                        <div class="student-row">
+                            <strong>With {{ sess.mentor_name }} (regarding {{ sess.student_name }})</strong>
+                            <span class="status-badge"
+                                style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Scheduled</span>
+                        </div>
+                        <p class="section-note"
+                            style="margin-top: 0.5rem; font-weight: 600; color: var(--text-primary);">Time: {{
+                            sess.scheduled_at }}</p>
+                    </div>
+                </div>
+
+                <div ng-if="!data.upcoming_sessions || data.upcoming_sessions.length === 0" class="empty-state">
+                    No official sessions scheduled yet.
+                </div>
+            </div>
             <div class="glass-panel card">
                 <h3 class="card-title">Pending Connection Requests</h3>
                 <div ng-if="data.pending_link_requests && data.pending_link_requests.length > 0">
