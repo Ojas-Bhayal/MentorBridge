@@ -242,8 +242,22 @@ if ($role === 'Student') {
         ");
         $aStmt->execute($sIds);
         $data['appointments'] = $aStmt->fetchAll();
+        // NEW FIX: Fetch upcoming sessions officially scheduled by the Mentor
+        $uStmt = $pdo->prepare("
+            SELECT s.session_id, s.scheduled_at, us.name as student_name, um.name as mentor_name
+            FROM Sessions s
+            JOIN Students st ON s.student_id = st.student_id
+            JOIN Users us ON st.user_id = us.user_id
+            JOIN Mentors m ON s.mentor_id = m.mentor_id
+            JOIN Users um ON m.user_id = um.user_id
+            WHERE s.student_id IN ($ph) AND s.status = 'scheduled' AND s.type = 'parent'
+            ORDER BY s.scheduled_at ASC
+        ");
+        $uStmt->execute($sIds);
+        $data['upcoming_sessions'] = $uStmt->fetchAll();
     } else {
         $data['appointments'] = [];
+        $data['upcoming_sessions'] = []; // Ensure empty array if no students linked
     }
 
     // NEW FIX: Only fetch mentors linked to the parent's children

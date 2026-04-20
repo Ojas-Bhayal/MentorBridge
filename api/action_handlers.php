@@ -157,6 +157,25 @@ function handleMentorAction(PDO $pdo, int $user_id, int $mentorId, string $actio
         // 2. Create the Session
         $stmt = $pdo->prepare('INSERT INTO Sessions (mentor_id, student_id, scheduled_at, status, type) VALUES (?, ?, ?, "scheduled", ?)');
         $stmt->execute([$mentorId, $studentId, $data['scheduled_at'], $type]);
+
+        // NEW FIX: Send an automated notification to Parents if the session includes them
+        if ($type === 'parent') {
+            $pStmt = $pdo->prepare('SELECT p.user_id FROM Parent_Student ps JOIN Parents p ON ps.parent_id = p.parent_id WHERE ps.student_id = ?');
+            $pStmt->execute([$studentId]);
+            $parentIds = $pStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($parentIds)) {
+                $mentorName = $_SESSION['name'] ?? 'A Mentor';
+                $time = date('M j, Y g:i A', strtotime($data['scheduled_at']));
+                $msg = "Mentor $mentorName has officially scheduled a shared session on $time.";
+
+                $notifStmt = $pdo->prepare('INSERT INTO NotificationQueue (user_id, message, type, status) VALUES (?, ?, "message", "pending")');
+                foreach ($parentIds as $pid) {
+                    $notifStmt->execute([$pid, $msg]);
+                }
+            }
+        }
+
         jsonSuccess();
 
     } else if ($action === 'complete_session') {
@@ -418,6 +437,15 @@ function handleParentAction(PDO $pdo, int $user_id, int $parentId, string $actio
             $stmt->execute([$data['requested_time'], $appointmentId, $childId]);
         }
         jsonSuccess();
+
+        // NEW FIX: Add the missing notification handler for Parents
+    } else if ($action === 'update_notification_status') {
+        requireNotEmpty($data['notification_id'] ?? '', 'Notification id');
+        requireNotEmpty($data['status'] ?? '', 'Notification status');
+        // The updateNotificationStatus helper safely checks user ownership
+        updateNotificationStatus($pdo, (int) $data['notification_id'], $user_id, $data['status']);
+        jsonSuccess();
+
     } else {
         fail('Invalid action.');
     }
